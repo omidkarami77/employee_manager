@@ -1,5 +1,12 @@
+import 'config/pocketbase_config.dart';
+import 'data/employee_repository.dart';
+import 'models/employee.dart';
+import 'state/employees_controller.dart';
+import 'utils/experience.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pocketbase/pocketbase.dart';
 
 void main() => runApp(const EmployeeManagerApp());
 
@@ -22,7 +29,8 @@ class AppText {
 }
 
 class EmployeeManagerApp extends StatelessWidget {
-  const EmployeeManagerApp({super.key});
+  const EmployeeManagerApp({super.key, this.repository});
+  final EmployeeRepository? repository;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -34,21 +42,40 @@ class EmployeeManagerApp extends StatelessWidget {
       scaffoldBackgroundColor: const Color(0xFFF6F8FC),
       fontFamily: 'Segoe UI',
     ),
-    home: const Directionality(
+    home: Directionality(
       textDirection: TextDirection.rtl,
-      child: EmployeeManagerHome(),
+      child: EmployeeManagerHome(repository: repository),
     ),
   );
 }
 
 class EmployeeManagerHome extends StatefulWidget {
-  const EmployeeManagerHome({super.key});
+  const EmployeeManagerHome({super.key, this.repository});
+  final EmployeeRepository? repository;
   @override
   State<EmployeeManagerHome> createState() => _EmployeeManagerHomeState();
 }
 
 class _EmployeeManagerHomeState extends State<EmployeeManagerHome> {
   int _selectedIndex = 0;
+  late final EmployeesController _employees;
+
+  @override
+  void initState() {
+    super.initState();
+    _employees = EmployeesController(
+      widget.repository ??
+          EmployeeRepository(PocketBase(PocketBaseConfig.baseUrl)),
+    );
+    _employees.loadEmployees();
+  }
+
+  @override
+  void dispose() {
+    _employees.dispose();
+    super.dispose();
+  }
+
   static const _menuItems = [
     _NavigationItem(AppText.dashboard, Icons.grid_view_rounded),
     _NavigationItem(AppText.employees, Icons.people_outline_rounded),
@@ -66,7 +93,14 @@ class _EmployeeManagerHomeState extends State<EmployeeManagerHome> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: _PageContent(index: _selectedIndex, compact: compact),
+                child: ListenableBuilder(
+                  listenable: _employees,
+                  builder: (context, _) => _PageContent(
+                    index: _selectedIndex,
+                    compact: compact,
+                    controller: _employees,
+                  ),
+                ),
               ),
               _Sidebar(
                 compact: compact,
@@ -217,17 +251,76 @@ class _SidebarItem extends StatelessWidget {
 }
 
 class _PageContent extends StatelessWidget {
-  const _PageContent({required this.index, required this.compact});
+  const _PageContent({
+    required this.index,
+    required this.compact,
+    required this.controller,
+  });
+  final EmployeesController controller;
   final int index;
   final bool compact;
+
   @override
   Widget build(BuildContext context) {
-    final page = switch (index) {
-      0 => const _DashboardPage(),
-      1 => const _EmployeesPage(),
-      2 => const _ReportsPage(),
-      _ => const _SettingsPage(),
-    };
+    final Widget page;
+    if (index < 2 &&
+        (controller.status == EmployeesStatus.loading ||
+            controller.status == EmployeesStatus.error)) {
+      page = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _PageHeader(
+            title: index == 0 ? AppText.dashboard : AppText.employees,
+            description: 'اطلاعات کارکنان',
+          ),
+          const SizedBox(height: 28),
+          _Panel(
+            child: SizedBox(
+              width: double.infinity,
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: controller.status == EmployeesStatus.loading
+                    ? const Column(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('در حال دریافت اطلاعات کارکنان…'),
+                        ],
+                      )
+                    : Column(
+                        children: [
+                          const Icon(
+                            Icons.cloud_off_outlined,
+                            size: 36,
+                            color: Color(0xFF667085),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            controller.errorMessage ??
+                                'ارتباط با پایگاه داده برقرار نشد',
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: controller.loadEmployees,
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: const Text('تلاش دوباره'),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      page = switch (index) {
+        0 => _DashboardPage(controller: controller),
+        1 => _EmployeesPage(controller: controller),
+        2 => const _ReportsPage(),
+        _ => const _SettingsPage(),
+      };
+    }
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 24 : 48,
@@ -276,18 +369,31 @@ class _PageHeader extends StatelessWidget {
 }
 
 class _DashboardPage extends StatelessWidget {
-  const _DashboardPage();
+  const _DashboardPage({required this.controller});
+  final EmployeesController controller;
   @override
-  Widget build(BuildContext context) => const Column(
+  Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _PageHeader(
         title: AppText.dashboard,
+        action: IconButton(
+          tooltip: 'به‌روزرسانی',
+          onPressed: controller.isMutating ? null : controller.loadEmployees,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
         description: '\u0646\u0645\u0627\u06cc\u06cc \u06a9\u0644\u06cc \u0627\u0632 \u0648\u0636\u0639\u06cc\u062a \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646 \u0645\u062c\u0645\u0648\u0639\u0647',
       ),
       SizedBox(height: 36),
-      _StatsGrid(),
+      _StatsGrid(employees: controller.employees),
       SizedBox(height: 28),
+      if (controller.status == EmployeesStatus.empty) ...[
+        const _InfoCard(
+          title: 'هنوز کارمندی ثبت نشده است.',
+          text: 'از صفحه کارکنان، اولین کارمند را ثبت کنید.',
+        ),
+        const SizedBox(height: 20),
+      ],
       _InfoCard(
         title: '\u062e\u0644\u0627\u0635\u0647 \u0648\u0636\u0639\u06cc\u062a \u0633\u0627\u0632\u0645\u0627\u0646',
         text: '\u0627\u0637\u0644\u0627\u0639\u0627\u062a \u0648 \u06af\u0632\u0627\u0631\u0634\u200c\u0647\u0627\u06cc \u062a\u06a9\u0645\u06cc\u0644\u06cc \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646 \u062f\u0631 \u0627\u06cc\u0646 \u0628\u062e\u0634 \u0646\u0645\u0627\u06cc\u0634 \u062f\u0627\u062f\u0647 \u062e\u0648\u0627\u0647\u0646\u062f \u0634\u062f.',
@@ -297,129 +403,118 @@ class _DashboardPage extends StatelessWidget {
 }
 
 class _EmployeesPage extends StatefulWidget {
-  const _EmployeesPage();
+  const _EmployeesPage({required this.controller});
+  final EmployeesController controller;
   @override
   State<_EmployeesPage> createState() => _EmployeesPageState();
 }
 
 class _EmployeesPageState extends State<_EmployeesPage> {
   final _search = TextEditingController();
-  final _employees = <_Employee>[
-    _Employee(
-      'علی',
-      'احمدی',
-      '1001',
-      '09121234567',
-      DateTime(2012, 6, 4),
-      true,
-    ),
-    _Employee(
-      'مریم',
-      'رضایی',
-      '1002',
-      '09122345678',
-      DateTime(2017, 11, 13),
-      true,
-    ),
-    _Employee(
-      'سارا',
-      'موسوی',
-      '1003',
-      '09351234567',
-      DateTime(2009, 2, 22),
-      true,
-    ),
-    _Employee(
-      'رضا',
-      'کریمی',
-      '1004',
-      '09124567890',
-      DateTime(2020, 8, 17),
-      false,
-    ),
-    _Employee(
-      'نگار',
-      'حسینی',
-      '1005',
-      '09361234567',
-      DateTime(2015, 3, 9),
-      true,
-    ),
-    _Employee(
-      'امیر',
-      'محمدی',
-      '1006',
-      '09127890123',
-      DateTime(2022, 1, 28),
-      true,
-    ),
-    _Employee(
-      'زهرا',
-      'صادقی',
-      '1007',
-      '09371234567',
-      DateTime(2018, 9, 5),
-      false,
-    ),
-    _Employee(
-      'حسن',
-      'اکبری',
-      '1008',
-      '09128901234',
-      DateTime(2011, 12, 19),
-      true,
-    ),
-  ];
   @override
   void dispose() {
     _search.dispose();
     super.dispose();
   }
 
-  List<_Employee> get _shown {
+  List<Employee> get _shown {
     final q = _search.text.trim().toLowerCase();
     return q.isEmpty
-        ? _employees
-        : _employees
+        ? widget.controller.employees
+        : widget.controller.employees
               .where(
                 (e) =>
-                    e.first.toLowerCase().contains(q) ||
-                    e.last.toLowerCase().contains(q) ||
-                    e.code.contains(q),
+                    e.firstName.toLowerCase().contains(q) ||
+                    e.lastName.toLowerCase().contains(q) ||
+                    e.personnelCode.contains(q),
               )
               .toList();
   }
 
-  Future<void> _delete(_Employee employee) async {
+  Future<void> _delete(Employee employee) async {
+    if (widget.controller.isMutating) return;
     final remove = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('حذف کارمند'),
-        content: Text('آیا از حذف «${employee.name}» مطمئن هستید؟'),
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('حذف کارمند'),
+          content: Text('آیا از حذف «${employee.fullName}» مطمئن هستید؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('انصراف'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('حذف'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (remove != true || !mounted) return;
+    try {
+      await widget.controller.deleteEmployee(employee);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('کارمند با موفقیت حذف شد.')));
+    } on EmployeeRepositoryException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  void _view(Employee e) => showDialog<void>(
+    context: context,
+    builder: (context) => Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        title: const Text('جزئیات کارمند'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children:
+                {
+                      'شناسه': e.id,
+                      'نام': e.firstName,
+                      'نام خانوادگی': e.lastName,
+                      'کد ملی': e.nationalCode,
+                      'شماره موبایل': e.mobile,
+                      'کد پرسنلی': e.personnelCode,
+                      'سمت': e.jobTitle,
+                      'واحد سازمانی': e.department,
+                      'تاریخ استخدام': _jalali(e.hireDate),
+                      'تاریخ پایان همکاری': e.endDate == null
+                          ? '—'
+                          : _jalali(e.endDate!),
+                      'وضعیت': e.isActive ? 'فعال' : 'غیرفعال',
+                      'سابقه کار': _fa(employeeExperience(e).toString()),
+                    }.entries
+                    .map(
+                      (x) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Text('${x.key}: ${x.value}'),
+                      ),
+                    )
+                    .toList(),
+          ),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('انصراف'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('حذف'),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('بستن'),
           ),
         ],
       ),
-    );
-    if (remove == true && mounted) setState(() => _employees.remove(employee));
-  }
-
-  void _notice(String action, _Employee employee) =>
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$action ${employee.name} در نسخه بعدی فعال می‌شود.'),
-        ),
-      );
+    ),
+  );
   @override
   Widget build(BuildContext context) {
     final employees = _shown;
@@ -429,13 +524,27 @@ class _EmployeesPageState extends State<_EmployeesPage> {
         _PageHeader(
           title: AppText.employees,
           description: 'فهرست و مدیریت اطلاعات کارکنان',
-          action: FilledButton.icon(
-            onPressed: _addEmployee,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('افزودن کارمند'),
+          action: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'به‌روزرسانی',
+                onPressed: widget.controller.isMutating
+                    ? null
+                    : widget.controller.loadEmployees,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: widget.controller.isMutating ? null : _addEmployee,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('افزودن کارمند'),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 28),
+        if (widget.controller.isMutating) const LinearProgressIndicator(),
         _Panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,6 +570,15 @@ class _EmployeesPageState extends State<_EmployeesPage> {
                 ),
               ),
               const SizedBox(height: 8),
+              if (employees.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Text(
+                    widget.controller.employees.isEmpty
+                        ? 'هنوز کارمندی ثبت نشده است.'
+                        : 'کارمندی با این مشخصات پیدا نشد.',
+                  ),
+                ),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
@@ -486,34 +604,38 @@ class _EmployeesPageState extends State<_EmployeesPage> {
                         DataCell(Text(_fa('${entry.key + 1}'))),
                         DataCell(
                           Text(
-                            employee.name,
+                            employee.fullName,
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
-                        DataCell(Text(_fa(employee.code))),
+                        DataCell(Text(_fa(employee.personnelCode))),
                         DataCell(Text(_fa(employee.mobile))),
-                        DataCell(Text(_jalali(employee.hired))),
-                        DataCell(Text(_experience(employee.hired))),
-                        DataCell(_StatusBadge(active: employee.active)),
+                        DataCell(Text(_jalali(employee.hireDate))),
+                        DataCell(
+                          Text(_fa(employeeExperience(employee).toString())),
+                        ),
+                        DataCell(_StatusBadge(active: employee.isActive)),
                         DataCell(
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
                                 tooltip: 'مشاهده',
-                                onPressed: () =>
-                                    _notice('مشاهده اطلاعات', employee),
+                                onPressed: () => _view(employee),
                                 icon: const Icon(Icons.visibility_outlined),
                               ),
                               IconButton(
                                 tooltip: 'ویرایش',
-                                onPressed: () =>
-                                    _notice('ویرایش اطلاعات', employee),
+                                onPressed: widget.controller.isMutating
+                                    ? null
+                                    : () => _addEmployee(employee),
                                 icon: const Icon(Icons.edit_outlined),
                               ),
                               IconButton(
                                 tooltip: 'حذف',
-                                onPressed: () => _delete(employee),
+                                onPressed: widget.controller.isMutating
+                                    ? null
+                                    : () => _delete(employee),
                                 color: Theme.of(context).colorScheme.error,
                                 icon: const Icon(Icons.delete_outline_rounded),
                               ),
@@ -532,22 +654,40 @@ class _EmployeesPageState extends State<_EmployeesPage> {
     );
   }
 
-  Future<void> _addEmployee() async {
-    final employee = await showDialog<_Employee>(
+  Future<void> _addEmployee([Employee? original]) async {
+    if (widget.controller.isMutating) return;
+    final employee = await showDialog<Employee>(
       context: context,
-      builder: (_) => const _AddEmployeeDialog(),
+      barrierDismissible: false,
+      builder: (_) => _AddEmployeeDialog(
+        employee: original,
+        employees: widget.controller.employees,
+        onSave: widget.controller.saveEmployee,
+      ),
     );
     if (employee != null && mounted) {
-      setState(() => _employees.add(employee));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('کارمند با موفقیت ثبت شد.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            original == null
+                ? 'کارمند با موفقیت ثبت شد.'
+                : 'تغییرات با موفقیت ذخیره شد.',
+          ),
+        ),
+      );
     }
   }
 }
 
 class _AddEmployeeDialog extends StatefulWidget {
-  const _AddEmployeeDialog();
+  const _AddEmployeeDialog({
+    this.employee,
+    required this.employees,
+    required this.onSave,
+  });
+  final Future<Employee> Function(Employee) onSave;
+  final Employee? employee;
+  final List<Employee> employees;
   @override
   State<_AddEmployeeDialog> createState() => _AddEmployeeDialogState();
 }
@@ -564,6 +704,39 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
   DateTime? _hireDate;
   DateTime? _endDate;
   bool _active = true;
+  bool _saving = false;
+  String? _saveError;
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.employee;
+    if (e == null) return;
+    _first.text = e.firstName;
+    _last.text = e.lastName;
+    _nationalId.text = e.nationalCode;
+    _mobile.text = e.mobile;
+    _code.text = e.personnelCode;
+    _title.text = e.jobTitle;
+    _department.text = e.department;
+    _hireDate = e.hireDate;
+    _endDate = e.endDate;
+    _active = e.isActive;
+  }
+
+  String? _unique(String? v, {bool national = false}) {
+    if (_required(v) != null) return _required(v);
+    if (national && !RegExp(r'^\d{10}$').hasMatch(v!)) {
+      return 'کد ملی باید ۱۰ رقم باشد.';
+    }
+    return widget.employees.any(
+          (e) =>
+              e.id != widget.employee?.id &&
+              (national ? e.nationalCode : e.personnelCode) == v!.trim(),
+        )
+        ? (national ? 'کد ملی تکراری است.' : 'کد پرسنلی تکراری است.')
+        : null;
+  }
+
   @override
   void dispose() {
     for (final c in [
@@ -588,7 +761,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
         title: endDate ? 'انتخاب تاریخ پایان همکاری' : 'انتخاب تاریخ استخدام',
       ),
     );
-    if (date != null) {
+    if (date != null && mounted) {
       setState(() {
         if (endDate) {
           _endDate = date;
@@ -603,217 +776,254 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       value == null || value.trim().isEmpty ? 'این فیلد الزامی است.' : null;
   InputDecoration _dec(String text) =>
       InputDecoration(labelText: text, border: const OutlineInputBorder());
-  void _submit() {
+  Future<void> _submit() async {
+    if (_saving) return;
+    setState(() => _saveError = null);
     if (!_form.currentState!.validate()) return;
     if (_hireDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تاریخ استخدام را انتخاب کنید.')),
-      );
+      setState(() => _saveError = 'تاریخ استخدام را انتخاب کنید.');
       return;
     }
     if (!_active && _endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تاریخ پایان همکاری را انتخاب کنید.')),
-      );
+      setState(() => _saveError = 'تاریخ پایان همکاری را انتخاب کنید.');
       return;
     }
     if (_endDate != null && _endDate!.isBefore(_hireDate!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تاریخ پایان همکاری نمی‌تواند قبل از استخدام باشد.'),
-        ),
+      setState(
+        () => _saveError = 'تاریخ پایان همکاری نمی‌تواند قبل از استخدام باشد.',
       );
       return;
     }
-    Navigator.pop(
-      context,
-      _Employee(
-        _first.text.trim(),
-        _last.text.trim(),
-        _code.text.trim(),
-        _mobile.text.trim(),
-        _hireDate!,
-        _active,
-        nationalId: _nationalId.text.trim(),
-        title: _title.text.trim(),
-        department: _department.text.trim(),
-        endDate: _endDate,
-      ),
+    final employee = Employee(
+      id: widget.employee?.id ?? '',
+      firstName: _first.text.trim(),
+      lastName: _last.text.trim(),
+      personnelCode: _code.text.trim(),
+      mobile: _mobile.text.trim(),
+      hireDate: _hireDate!,
+      isActive: _active,
+      nationalCode: _nationalId.text.trim(),
+      jobTitle: _title.text.trim(),
+      department: _department.text.trim(),
+      endDate: _active ? null : _endDate,
     );
+    setState(() => _saving = true);
+    try {
+      final saved = await widget.onSave(employee);
+      if (!mounted) return;
+      setState(() => _saving = false);
+      Navigator.pop(context, saved);
+    } on EmployeeRepositoryException catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _saveError = error.fieldErrors.isEmpty
+            ? error.message
+            : error.fieldErrors.values.join('\n'),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saveError = 'ذخیره اطلاعات انجام نشد. دوباره تلاش کنید.');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
-  Widget build(BuildContext context) => Directionality(
-    textDirection: TextDirection.rtl,
-    child: AlertDialog(
-      title: const Text('افزودن کارمند'),
-      content: SizedBox(
-        width: 680,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _form,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _FormSectionTitle('اطلاعات شخصی'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_saving,
+    child: Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        title: Text(
+          widget.employee == null ? 'افزودن کارمند' : 'ویرایش کارمند',
+        ),
+        content: SizedBox(
+          width: 680,
+          child: SingleChildScrollView(
+            child: AbsorbPointer(
+              absorbing: _saving,
+              child: Form(
+                key: _form,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _FormField(
-                      child: TextFormField(
-                        controller: _first,
-                        validator: _required,
-                        decoration: _dec('نام'),
-                      ),
-                    ),
-                    _FormField(
-                      child: TextFormField(
-                        controller: _last,
-                        validator: _required,
-                        decoration: _dec('نام خانوادگی'),
-                      ),
-                    ),
-                    _FormField(
-                      child: TextFormField(
-                        controller: _nationalId,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        maxLength: 10,
-                        validator: (v) => RegExp(r'^\d{10}$').hasMatch(v ?? '')
-                            ? null
-                            : 'کد ملی باید ۱۰ رقم باشد.',
-                        decoration: _dec('کد ملی'),
-                      ),
-                    ),
-                    _FormField(
-                      child: TextFormField(
-                        controller: _mobile,
-                        keyboardType: TextInputType.phone,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        maxLength: 11,
-                        validator: (v) => RegExp(r'^09\d{9}$').hasMatch(v ?? '')
-                            ? null
-                            : 'شماره موبایل معتبر نیست.',
-                        decoration: _dec('شماره موبایل'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const _FormSectionTitle('اطلاعات پرسنلی'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _FormField(
-                      child: TextFormField(
-                        controller: _code,
-                        validator: _required,
-                        decoration: _dec('کد پرسنلی'),
-                      ),
-                    ),
-                    _FormField(
-                      child: TextFormField(
-                        controller: _title,
-                        validator: _required,
-                        decoration: _dec('سمت'),
-                      ),
-                    ),
-                    _FormField(
-                      child: TextFormField(
-                        controller: _department,
-                        validator: _required,
-                        decoration: _dec('واحد سازمانی'),
-                      ),
-                    ),
-                    _FormField(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickDate(endDate: false),
-                        icon: const Icon(Icons.calendar_month_outlined),
-                        label: Text(
-                          _hireDate == null
-                              ? 'انتخاب تاریخ استخدام'
-                              : _jalali(_hireDate!),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(56),
-                          alignment: Alignment.centerRight,
+                    if (_saveError != null) ...[
+                      Text(
+                        _saveError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
                         ),
                       ),
-                    ),
-                    _FormField(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'وضعیت استخدام',
-                            style: TextStyle(fontWeight: FontWeight.w600),
+                      const SizedBox(height: 16),
+                    ],
+                    const _FormSectionTitle('اطلاعات شخصی'),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        _FormField(
+                          child: TextFormField(
+                            controller: _first,
+                            validator: _required,
+                            decoration: _dec('نام'),
                           ),
-                          const SizedBox(height: 6),
-                          SegmentedButton<bool>(
-                            segments: const [
-                              ButtonSegment(
-                                value: true,
-                                label: Text('فعال'),
-                                icon: Icon(Icons.check_circle_outline),
+                        ),
+                        _FormField(
+                          child: TextFormField(
+                            controller: _last,
+                            validator: _required,
+                            decoration: _dec('نام خانوادگی'),
+                          ),
+                        ),
+                        _FormField(
+                          child: TextFormField(
+                            controller: _nationalId,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            maxLength: 10,
+                            validator: (v) => _unique(v, national: true),
+                            decoration: _dec('کد ملی'),
+                          ),
+                        ),
+                        _FormField(
+                          child: TextFormField(
+                            controller: _mobile,
+                            keyboardType: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            maxLength: 11,
+                            validator: (v) =>
+                                RegExp(r'^09\d{9}$').hasMatch(v ?? '')
+                                ? null
+                                : 'شماره موبایل معتبر نیست.',
+                            decoration: _dec('شماره موبایل'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    const _FormSectionTitle('اطلاعات پرسنلی'),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        _FormField(
+                          child: TextFormField(
+                            controller: _code,
+                            validator: (v) => _unique(v),
+                            decoration: _dec('کد پرسنلی'),
+                          ),
+                        ),
+                        _FormField(
+                          child: TextFormField(
+                            controller: _title,
+                            validator: _required,
+                            decoration: _dec('سمت'),
+                          ),
+                        ),
+                        _FormField(
+                          child: TextFormField(
+                            controller: _department,
+                            validator: _required,
+                            decoration: _dec('واحد سازمانی'),
+                          ),
+                        ),
+                        _FormField(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _pickDate(endDate: false),
+                            icon: const Icon(Icons.calendar_month_outlined),
+                            label: Text(
+                              _hireDate == null
+                                  ? 'انتخاب تاریخ استخدام'
+                                  : _jalali(_hireDate!),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(56),
+                              alignment: Alignment.centerRight,
+                            ),
+                          ),
+                        ),
+                        _FormField(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'وضعیت استخدام',
+                                style: TextStyle(fontWeight: FontWeight.w600),
                               ),
-                              ButtonSegment(
-                                value: false,
-                                label: Text('غیرفعال'),
-                                icon: Icon(Icons.cancel_outlined),
+                              const SizedBox(height: 6),
+                              SegmentedButton<bool>(
+                                segments: const [
+                                  ButtonSegment(
+                                    value: true,
+                                    label: Text('فعال'),
+                                    icon: Icon(Icons.check_circle_outline),
+                                  ),
+                                  ButtonSegment(
+                                    value: false,
+                                    label: Text('غیرفعال'),
+                                    icon: Icon(Icons.cancel_outlined),
+                                  ),
+                                ],
+                                selected: {_active},
+                                onSelectionChanged: (value) => setState(() {
+                                  _active = value.first;
+                                  if (_active) _endDate = null;
+                                }),
                               ),
                             ],
-                            selected: {_active},
-                            onSelectionChanged: (value) => setState(() {
-                              _active = value.first;
-                              if (_active) _endDate = null;
-                            }),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!_active)
-                      _FormField(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _pickDate(endDate: true),
-                          icon: const Icon(Icons.event_busy_outlined),
-                          label: Text(
-                            _endDate == null
-                                ? 'انتخاب تاریخ پایان همکاری'
-                                : _jalali(_endDate!),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(56),
-                            alignment: Alignment.centerRight,
                           ),
                         ),
-                      ),
+                        if (!_active)
+                          _FormField(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _pickDate(endDate: true),
+                              icon: const Icon(Icons.event_busy_outlined),
+                              label: Text(
+                                _endDate == null
+                                    ? 'انتخاب تاریخ پایان همکاری'
+                                    : _jalali(_endDate!),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(56),
+                                alignment: Alignment.centerRight,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _saving ? null : () => Navigator.pop(context),
+            child: const Text('انصراف'),
+          ),
+          FilledButton.icon(
+            onPressed: _saving ? null : _submit,
+            icon: _saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.check_rounded),
+            label: Text(
+              widget.employee == null ? 'ثبت کارمند' : 'ذخیره تغییرات',
+            ),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('انصراف'),
-        ),
-        FilledButton.icon(
-          onPressed: _submit,
-          icon: const Icon(Icons.check_rounded),
-          label: const Text('ثبت کارمند'),
-        ),
-      ],
     ),
   );
 }
@@ -849,6 +1059,7 @@ class _JalaliDatePicker extends StatefulWidget {
 
 class _JalaliDatePickerState extends State<_JalaliDatePicker> {
   late int _year, _month, _day;
+  late int _firstYear, _lastYear;
   @override
   void initState() {
     super.initState();
@@ -857,6 +1068,10 @@ class _JalaliDatePickerState extends State<_JalaliDatePicker> {
     _year = j.$1;
     _month = j.$2;
     _day = j.$3;
+    final today = DateTime.now();
+    final currentYear = _toJalali(today.year, today.month, today.day).$1;
+    _firstYear = _year < currentYear - 100 ? _year : currentYear - 100;
+    _lastYear = _year > currentYear + 10 ? _year : currentYear + 10;
   }
 
   int get _dayCount => _month <= 6
@@ -877,10 +1092,10 @@ class _JalaliDatePickerState extends State<_JalaliDatePicker> {
           DropdownButton<int>(
             value: _year,
             items: List.generate(
-              51,
+              _lastYear - _firstYear + 1,
               (i) => DropdownMenuItem(
-                value: 1375 + i,
-                child: Text(_fa((1375 + i).toString())),
+                value: _firstYear + i,
+                child: Text(_fa((_firstYear + i).toString())),
               ),
             ).reversed.toList(),
             onChanged: (v) => setState(() {
@@ -952,34 +1167,6 @@ class _StatusBadge extends StatelessWidget {
   );
 }
 
-class _Employee {
-  const _Employee(
-    this.first,
-    this.last,
-    this.code,
-    this.mobile,
-    this.hired,
-    this.active, {
-    this.nationalId = '',
-    this.title = '',
-    this.department = '',
-    this.endDate,
-  });
-  final String first, last, code, mobile;
-  final DateTime hired;
-  final bool active;
-  final String nationalId, title, department;
-  final DateTime? endDate;
-  String get name => '$first $last'.trim();
-}
-
-String _experience(DateTime hired) {
-  final now = DateTime.now();
-  var months = (now.year - hired.year) * 12 + now.month - hired.month;
-  if (now.day < hired.day) months--;
-  return '${_fa('${months ~/ 12}')} سال و ${_fa('${months % 12}')} ماه';
-}
-
 String _jalali(DateTime date) {
   final j = _toJalali(date.year, date.month, date.day);
   return _fa(
@@ -1027,7 +1214,7 @@ DateTime _jalaliToGregorian(int jy, int jm, int jd) {
   for (var index = 0; index < jm - 1; index++) {
     dayNumber += jDaysInMonth[index];
   }
-  dayNumber += jd - 1;
+  dayNumber += jd - 1 + 79;
   var gYear = 1600 + 400 * (dayNumber ~/ 146097);
   dayNumber %= 146097;
   var leap = true;
@@ -1159,71 +1346,48 @@ class _SettingsPage extends StatelessWidget {
 }
 
 class _StatsGrid extends StatelessWidget {
-  const _StatsGrid();
-  static const stats = [
-    _Stat(
-      AppText.allEmployees,
-      '\u06f1\u06f2\u06f8',
-      Icons.groups_rounded,
-      Color(0xFF315C9B),
-      Color(0xFFE8F0FE),
-    ),
-    _Stat(
-      AppText.overTenYears,
-      '\u06f4\u06f2',
-      Icons.workspace_premium_outlined,
-      Color(0xFF8B5C18),
-      Color(0xFFFFF3DD),
-    ),
-    _Stat(
-      AppText.overFifteenYears,
-      '\u06f2\u06f7',
-      Icons.military_tech_outlined,
-      Color(0xFF7D4C9E),
-      Color(0xFFF4E9FC),
-    ),
-    _Stat(
-      AppText.overTwentyYears,
-      '\u06f1\u06f4',
-      Icons.emoji_events_outlined,
-      Color(0xFF217A67),
-      Color(0xFFE2F5F0),
-    ),
-  ];
-  static const legacyStats = [
-    _Stat(
-      '\u06a9\u0644 \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646',
-      '۱۲۸',
-      Icons.groups_rounded,
-      Color(0xFF315C9B),
-      Color(0xFFE8F0FE),
-    ),
-    _Stat(
-      '\u0633\u0627\u0628\u0642\u0647 \u0628\u0627\u0644\u0627\u06cc ۱۰ \u0633\u0627\u0644',
-      '۴۲',
-      Icons.workspace_premium_outlined,
-      Color(0xFF8B5C18),
-      Color(0xFFFFF3DD),
-    ),
-    _Stat(
-      '\u0633\u0627\u0628\u0642\u0647 \u0628\u0627\u0644\u0627\u06cc ۱۵ \u0633\u0627\u0644',
-      '۲۷',
-      Icons.military_tech_outlined,
-      Color(0xFF7D4C9E),
-      Color(0xFFF4E9FC),
-    ),
-    _Stat(
-      '\u0633\u0627\u0628\u0642\u0647 \u0628\u0627\u0644\u0627\u06cc ۲۰ \u0633\u0627\u0644',
-      '۱۴',
-      Icons.emoji_events_outlined,
-      Color(0xFF217A67),
-      Color(0xFFE2F5F0),
-    ),
-  ];
+  const _StatsGrid({required this.employees});
+  final List<Employee> employees;
+  List<_Stat> get stats {
+    final now = DateTime.now();
+    int count(int years) => employees
+        .where((e) => employeeExperience(e, now: now).years >= years)
+        .length;
+    return [
+      _Stat(
+        AppText.allEmployees,
+        _fa('${employees.length}'),
+        Icons.groups_rounded,
+        const Color(0xFF315C9B),
+        const Color(0xFFE8F0FE),
+      ),
+      _Stat(
+        AppText.overTenYears,
+        _fa('${count(10)}'),
+        Icons.workspace_premium_outlined,
+        const Color(0xFF8B5C18),
+        const Color(0xFFFFF3DD),
+      ),
+      _Stat(
+        AppText.overFifteenYears,
+        _fa('${count(15)}'),
+        Icons.military_tech_outlined,
+        const Color(0xFF7D4C9E),
+        const Color(0xFFF4E9FC),
+      ),
+      _Stat(
+        AppText.overTwentyYears,
+        _fa('${count(20)}'),
+        Icons.emoji_events_outlined,
+        const Color(0xFF217A67),
+        const Color(0xFFE2F5F0),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      assert(legacyStats.isNotEmpty);
       final columns = constraints.maxWidth > 940
           ? 4
           : constraints.maxWidth > 590
@@ -1381,4 +1545,4 @@ class _Stat {
   final IconData icon;
   final Color color, background;
 }
-//test for ok 
+//test for ok

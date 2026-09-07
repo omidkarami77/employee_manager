@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pocketbase/pocketbase.dart';
 
+import 'auth_test_support.dart';
+
 void main() {
   group('EmployeeRecordMapper', () {
     test('reads every field and keeps stored calendar dates', () {
@@ -52,7 +54,7 @@ void main() {
 
         expect(body['hire_date'], '2024-03-20T00:00:00.000Z');
         expect(body['end_date'], '2024-03-21T00:00:00.000Z');
-        expect(body['national_code'], '0012345678');
+        expect(body['national_code_'], '0012345678');
         expect(body['personnel_code'], '0012');
         expect(body['is_active'], isFalse);
         expect(body, isNot(contains('id')));
@@ -67,7 +69,7 @@ void main() {
       final repository = _repository((request) async {
         expect(request.method, 'GET');
         expect(request.url.path, '/api/collections/employees/records');
-        expect(request.headers, isNot(contains('authorization')));
+        expect(request.headers['authorization'], isNotEmpty);
         final page = int.parse(request.url.queryParameters['page']!);
         final perPage = int.parse(request.url.queryParameters['perPage']!);
         pages.add(page);
@@ -105,13 +107,12 @@ void main() {
           expect(body, {
             'first_name': 'علی',
             'last_name': 'احمدی',
-            'national_code': '0012345678',
+            'national_code_': '0012345678',
             'mobile': '09123456789',
             'personnel_code': '0012',
             'job_title': 'کارشناس',
             'department': 'اداری',
             'hire_date': '2010-03-21T00:00:00.000Z',
-            'end_date': '',
             'is_active': true,
           });
           return _response(_record(id: 'server000000001'));
@@ -169,7 +170,7 @@ void main() {
           'status': 400,
           'message': 'Failed to create record.',
           'data': {
-            'national_code': {'code': 'validation_not_unique'},
+            'national_code_': {'code': 'validation_not_unique'},
             'personnel_code': {'code': 'validation_not_unique'},
           },
         }, status: 400),
@@ -182,7 +183,7 @@ void main() {
             (error) => error.fieldErrors,
             'field errors',
             {
-              'national_code': 'کد ملی تکراری است.',
+              'national_code_': 'کد ملی تکراری است.',
               'personnel_code': 'کد پرسنلی تکراری است.',
             },
           ),
@@ -286,6 +287,7 @@ EmployeeRepository _repository(
   PocketBase(
     'http://example.test',
     httpClientFactory: () => MockClient(handler),
+    authStore: AuthStore()..save(testToken(), testUserRecord()),
   ),
   requestTimeout: requestTimeout,
 );
@@ -306,7 +308,7 @@ Map<String, dynamic> _record({
   'collectionName': 'employees',
   'first_name': 'علی',
   'last_name': 'احمدی',
-  'national_code': '0012345678',
+  'national_code_': '0012345678',
   'mobile': '09123456789',
   'personnel_code': '0012',
   'job_title': 'کارشناس',

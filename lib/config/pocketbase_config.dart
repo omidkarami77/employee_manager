@@ -7,4 +7,5 @@ class PocketBaseConfig {
   );
 
   static const employeesCollection = 'employees';
+  static const authCollection = 'Auth';
 }

@@ -1,12 +1,20 @@
-import 'config/pocketbase_config.dart';
+import 'config/pocketbase_client.dart';
 import 'data/employee_repository.dart';
+import 'data/auth_repository.dart';
+import 'models/app_user.dart';
+import 'state/auth_cubit.dart';
+import 'login_page.dart';
 import 'models/employee.dart';
 import 'state/employees_controller.dart';
 import 'utils/experience.dart';
+import 'utils/employee_report.dart';
+import 'utils/localized_digits_formatter.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:pocketbase/pocketbase.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+part 'reports_page.dart';
 
 void main() => runApp(const EmployeeManagerApp());
 
@@ -28,9 +36,44 @@ class AppText {
       '\u0633\u0627\u0628\u0642\u0647 \u0628\u0627\u0644\u0627\u06cc \u06f2\u06f0 \u0633\u0627\u0644';
 }
 
-class EmployeeManagerApp extends StatelessWidget {
-  const EmployeeManagerApp({super.key, this.repository});
+class EmployeeManagerApp extends StatefulWidget {
+  const EmployeeManagerApp({super.key, this.repository, this.authRepository});
   final EmployeeRepository? repository;
+  final AuthRepository? authRepository;
+
+  @override
+  State<EmployeeManagerApp> createState() => _EmployeeManagerAppState();
+}
+
+class _EmployeeManagerAppState extends State<EmployeeManagerApp>
+    with WidgetsBindingObserver {
+  late final AuthCubit _auth;
+  late final EmployeeRepository _repository;
+  bool _restoringSession = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final client = widget.authRepository?.client ?? createPocketBaseClient();
+    _auth = AuthCubit(widget.authRepository ?? AuthRepository(client));
+    _repository = widget.repository ?? EmployeeRepository(client);
+    _auth.restore().whenComplete(() {
+      if (mounted) setState(() => _restoringSession = false);
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _auth.refresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _auth.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -44,14 +87,39 @@ class EmployeeManagerApp extends StatelessWidget {
     ),
     home: Directionality(
       textDirection: TextDirection.rtl,
-      child: EmployeeManagerHome(repository: repository),
+      child: BlocBuilder<AuthCubit, AuthState>(
+        bloc: _auth,
+        builder: (context, state) {
+          if (_restoringSession || state.status == AuthStatus.initial) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (state.status != AuthStatus.authenticated || state.user == null) {
+            return LoginPage(auth: _auth);
+          }
+          // Disposing this navigator removes employee dialogs on logout/role change.
+          return Navigator(
+            key: ValueKey('${state.user!.id}:${state.user!.role.name}'),
+            onGenerateRoute: (_) => MaterialPageRoute<void>(
+              builder: (_) =>
+                  EmployeeManagerHome(repository: _repository, auth: _auth),
+            ),
+          );
+        },
+      ),
     ),
   );
 }
 
 class EmployeeManagerHome extends StatefulWidget {
-  const EmployeeManagerHome({super.key, this.repository});
-  final EmployeeRepository? repository;
+  const EmployeeManagerHome({
+    super.key,
+    required this.repository,
+    required this.auth,
+  });
+  final EmployeeRepository repository;
+  final AuthCubit auth;
   @override
   State<EmployeeManagerHome> createState() => _EmployeeManagerHomeState();
 }
@@ -64,8 +132,8 @@ class _EmployeeManagerHomeState extends State<EmployeeManagerHome> {
   void initState() {
     super.initState();
     _employees = EmployeesController(
-      widget.repository ??
-          EmployeeRepository(PocketBase(PocketBaseConfig.baseUrl)),
+      widget.repository,
+      canManage: () => widget.auth.canManageEmployees,
     );
     _employees.loadEmployees();
   }
@@ -96,7 +164,10 @@ class _EmployeeManagerHomeState extends State<EmployeeManagerHome> {
                 child: ListenableBuilder(
                   listenable: _employees,
                   builder: (context, _) => _PageContent(
-                    index: _selectedIndex,
+                    index:
+                        _selectedIndex == 3 && !widget.auth.canManageEmployees
+                        ? 0
+                        : _selectedIndex,
                     compact: compact,
                     controller: _employees,
                   ),
@@ -105,7 +176,12 @@ class _EmployeeManagerHomeState extends State<EmployeeManagerHome> {
               _Sidebar(
                 compact: compact,
                 selectedIndex: _selectedIndex,
-                onSelected: (index) => setState(() => _selectedIndex = index),
+                user: widget.auth.state.user!,
+                onLogout: widget.auth.logout,
+                onSelected: (index) {
+                  if (index == 3 && !widget.auth.canManageEmployees) return;
+                  setState(() => _selectedIndex = index);
+                },
               ),
             ],
           );
@@ -120,10 +196,14 @@ class _Sidebar extends StatelessWidget {
     required this.compact,
     required this.selectedIndex,
     required this.onSelected,
+    required this.user,
+    required this.onLogout,
   });
   final bool compact;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final AppUser user;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -137,38 +217,55 @@ class _Sidebar extends StatelessWidget {
       children: [
         if (compact) const _Logo(compact: true) else const _Logo(),
         const SizedBox(height: 36),
-        ..._EmployeeManagerHomeState._menuItems.asMap().entries.map(
-          (entry) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _SidebarItem(
-              item: entry.value,
-              selected: selectedIndex == entry.key,
-              compact: compact,
-              onTap: () => onSelected(entry.key),
+        ..._EmployeeManagerHomeState._menuItems
+            .asMap()
+            .entries
+            .where((entry) => entry.key != 3 || user.isAdmin)
+            .map(
+              (entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _SidebarItem(
+                  item: entry.value,
+                  selected: selectedIndex == entry.key,
+                  compact: compact,
+                  onTap: () => onSelected(entry.key),
+                ),
+              ),
             ),
-          ),
-        ),
         const Spacer(),
         if (!compact)
-          const ListTile(
+          ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(
+            leading: const CircleAvatar(
               backgroundColor: Color(0xFFE8F1EC),
               child: Text('\u0645'),
             ),
             title: Text(
-              '\u0645\u062f\u06cc\u0631 \u0633\u06cc\u0633\u062a\u0645',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              user.displayName,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
             ),
             subtitle: Text(
-              '\u062e\u0648\u0634 \u0622\u0645\u062f\u06cc\u062f',
-              style: TextStyle(fontSize: 12),
+              user.roleLabel,
+              style: const TextStyle(fontSize: 12),
             ),
           )
         else
           const CircleAvatar(
             backgroundColor: Color(0xFFE8F1EC),
             child: Text('\u0645'),
+          ),
+        const SizedBox(height: 8),
+        if (compact)
+          IconButton(
+            onPressed: onLogout,
+            tooltip: 'خروج از حساب',
+            icon: const Icon(Icons.logout_rounded),
+          )
+        else
+          TextButton.icon(
+            onPressed: onLogout,
+            icon: const Icon(Icons.logout_rounded),
+            label: const Text('خروج از حساب'),
           ),
       ],
     ),
@@ -263,14 +360,18 @@ class _PageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Widget page;
-    if (index < 2 &&
+    if (index < 3 &&
         (controller.status == EmployeesStatus.loading ||
             controller.status == EmployeesStatus.error)) {
       page = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _PageHeader(
-            title: index == 0 ? AppText.dashboard : AppText.employees,
+            title: [
+              AppText.dashboard,
+              AppText.employees,
+              AppText.reports,
+            ][index],
             description: 'اطلاعات کارکنان',
           ),
           const SizedBox(height: 28),
@@ -317,7 +418,7 @@ class _PageContent extends StatelessWidget {
       page = switch (index) {
         0 => _DashboardPage(controller: controller),
         1 => _EmployeesPage(controller: controller),
-        2 => const _ReportsPage(),
+        2 => _ReportsPage(controller: controller),
         _ => const _SettingsPage(),
       };
     }
@@ -432,8 +533,11 @@ class _EmployeesPageState extends State<_EmployeesPage> {
   }
 
   Future<void> _delete(Employee employee) async {
-    if (widget.controller.isMutating) return;
+    if (!widget.controller.canManageEmployees || widget.controller.isMutating) {
+      return;
+    }
     final remove = await showDialog<bool>(
+      useRootNavigator: false,
       context: context,
       builder: (dialogContext) => Directionality(
         textDirection: TextDirection.rtl,
@@ -471,6 +575,7 @@ class _EmployeesPageState extends State<_EmployeesPage> {
   }
 
   void _view(Employee e) => showDialog<void>(
+    useRootNavigator: false,
     context: context,
     builder: (context) => Directionality(
       textDirection: TextDirection.rtl,
@@ -535,11 +640,12 @@ class _EmployeesPageState extends State<_EmployeesPage> {
                 icon: const Icon(Icons.refresh_rounded),
               ),
               const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: widget.controller.isMutating ? null : _addEmployee,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('افزودن کارمند'),
-              ),
+              if (widget.controller.canManageEmployees)
+                FilledButton.icon(
+                  onPressed: widget.controller.isMutating ? null : _addEmployee,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('افزودن کارمند'),
+                ),
             ],
           ),
         ),
@@ -624,21 +730,25 @@ class _EmployeesPageState extends State<_EmployeesPage> {
                                 onPressed: () => _view(employee),
                                 icon: const Icon(Icons.visibility_outlined),
                               ),
-                              IconButton(
-                                tooltip: 'ویرایش',
-                                onPressed: widget.controller.isMutating
-                                    ? null
-                                    : () => _addEmployee(employee),
-                                icon: const Icon(Icons.edit_outlined),
-                              ),
-                              IconButton(
-                                tooltip: 'حذف',
-                                onPressed: widget.controller.isMutating
-                                    ? null
-                                    : () => _delete(employee),
-                                color: Theme.of(context).colorScheme.error,
-                                icon: const Icon(Icons.delete_outline_rounded),
-                              ),
+                              if (widget.controller.canManageEmployees)
+                                IconButton(
+                                  tooltip: 'ویرایش',
+                                  onPressed: widget.controller.isMutating
+                                      ? null
+                                      : () => _addEmployee(employee),
+                                  icon: const Icon(Icons.edit_outlined),
+                                ),
+                              if (widget.controller.canManageEmployees)
+                                IconButton(
+                                  tooltip: 'حذف',
+                                  onPressed: widget.controller.isMutating
+                                      ? null
+                                      : () => _delete(employee),
+                                  color: Theme.of(context).colorScheme.error,
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -655,8 +765,11 @@ class _EmployeesPageState extends State<_EmployeesPage> {
   }
 
   Future<void> _addEmployee([Employee? original]) async {
-    if (widget.controller.isMutating) return;
+    if (!widget.controller.canManageEmployees || widget.controller.isMutating) {
+      return;
+    }
     final employee = await showDialog<Employee>(
+      useRootNavigator: false,
       context: context,
       barrierDismissible: false,
       builder: (_) => _AddEmployeeDialog(
@@ -755,6 +868,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
 
   Future<void> _pickDate({required bool endDate}) async {
     final date = await showDialog<DateTime>(
+      useRootNavigator: false,
       context: context,
       builder: (_) => _JalaliDatePicker(
         initialDate: endDate ? _endDate : _hireDate,
@@ -774,6 +888,30 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
 
   String? _required(String? value) =>
       value == null || value.trim().isEmpty ? 'این فیلد الزامی است.' : null;
+
+  String _normalizeMobile(String value) {
+    var mobile = value
+        .replaceAllMapped(RegExp(r'[۰-۹]'), (match) => String.fromCharCode(
+            48 + match.group(0)!.codeUnitAt(0) - 0x06f0,
+          ))
+        .replaceAllMapped(RegExp(r'[٠-٩]'), (match) => String.fromCharCode(
+            48 + match.group(0)!.codeUnitAt(0) - 0x0660,
+          ))
+        .replaceAll(RegExp(r'[\s\-()]'), '');
+    if (mobile.startsWith('+98')) mobile = '0${mobile.substring(3)}';
+    if (mobile.startsWith('98') && mobile.length == 12) {
+      mobile = '0${mobile.substring(2)}';
+    }
+    return mobile;
+  }
+
+  String? _mobileValidator(String? value) {
+    final mobile = _normalizeMobile(value ?? '');
+    return RegExp(r'^09\d{9}$').hasMatch(mobile)
+        ? null
+        : 'شماره موبایل معتبر نیست.';
+  }
+
   InputDecoration _dec(String text) =>
       InputDecoration(labelText: text, border: const OutlineInputBorder());
   Future<void> _submit() async {
@@ -799,7 +937,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       firstName: _first.text.trim(),
       lastName: _last.text.trim(),
       personnelCode: _code.text.trim(),
-      mobile: _mobile.text.trim(),
+      mobile: _normalizeMobile(_mobile.text),
       hireDate: _hireDate!,
       isActive: _active,
       nationalCode: _nationalId.text.trim(),
@@ -882,6 +1020,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                             controller: _nationalId,
                             keyboardType: TextInputType.number,
                             inputFormatters: [
+                              const LocalizedDigitsFormatter(),
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             maxLength: 10,
@@ -894,13 +1033,11 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                             controller: _mobile,
                             keyboardType: TextInputType.phone,
                             inputFormatters: [
+                              const LocalizedDigitsFormatter(),
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             maxLength: 11,
-                            validator: (v) =>
-                                RegExp(r'^09\d{9}$').hasMatch(v ?? '')
-                                ? null
-                                : 'شماره موبایل معتبر نیست.',
+                            validator: _mobileValidator,
                             decoration: _dec('شماره موبایل'),
                           ),
                         ),
@@ -1262,51 +1399,6 @@ String _fa(String text) => text.replaceAllMapped(
   (m) => '۰۱۲۳۴۵۶۷۸۹'[int.parse(m.group(0)!)],
 );
 
-class _ReportsPage extends StatelessWidget {
-  const _ReportsPage();
-  @override
-  Widget build(BuildContext context) => const Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _PageHeader(
-        title: AppText.reports,
-        description: '\u06af\u0632\u0627\u0631\u0634\u200c\u0647\u0627\u06cc \u0645\u062f\u06cc\u0631\u06cc\u062a\u06cc \u0648 \u0622\u0645\u0627\u0631\u06cc \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646',
-      ),
-      SizedBox(height: 28),
-      Wrap(
-        spacing: 16,
-        runSpacing: 16,
-        children: [
-          SizedBox(
-            width: 300,
-            child: _ReportCard(
-              icon: Icons.pie_chart_outline_rounded,
-              title: '\u062a\u0631\u06a9\u06cc\u0628 \u0648\u0627\u062d\u062f\u0647\u0627',
-              subtitle: '\u062a\u0648\u0632\u06cc\u0639 \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646 \u0628\u0631 \u0627\u0633\u0627\u0633 \u0648\u0627\u062d\u062f \u0633\u0627\u0632\u0645\u0627\u0646\u06cc',
-            ),
-          ),
-          SizedBox(
-            width: 300,
-            child: _ReportCard(
-              icon: Icons.timeline_rounded,
-              title: '\u0633\u0627\u0628\u0642\u0647 \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646',
-              subtitle: '\u062a\u062d\u0644\u06cc\u0644 \u0633\u0627\u0628\u0642\u0647 \u06a9\u0627\u0631\u06cc \u062f\u0631 \u0633\u0627\u0632\u0645\u0627\u0646',
-            ),
-          ),
-          SizedBox(
-            width: 300,
-            child: _ReportCard(
-              icon: Icons.file_download_outlined,
-              title: '\u062e\u0631\u0648\u062c\u06cc \u06af\u0632\u0627\u0631\u0634',
-              subtitle: '\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u0633\u062e\u0647 \u0642\u0627\u0628\u0644 \u0686\u0627\u067e \u06af\u0632\u0627\u0631\u0634\u200c\u0647\u0627',
-            ),
-          ),
-        ],
-      ),
-    ],
-  );
-}
-
 class _SettingsPage extends StatelessWidget {
   const _SettingsPage();
   @override
@@ -1437,40 +1529,6 @@ class _StatCard extends StatelessWidget {
             fontSize: 28,
             fontWeight: FontWeight.w800,
             color: Color(0xFF1D2939),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _ReportCard extends StatelessWidget {
-  const _ReportCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-  final IconData icon;
-  final String title, subtitle;
-  @override
-  Widget build(BuildContext context) => _Panel(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          backgroundColor: const Color(0xFFE8F0FE),
-          child: Icon(icon, color: const Color(0xFF315C9B)),
-        ),
-        const SizedBox(height: 18),
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 6),
-        Text(subtitle, style: const TextStyle(color: Color(0xFF667085))),
-        const SizedBox(height: 16),
-        TextButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.arrow_back_rounded),
-          label: const Text(
-            '\u0645\u0634\u0627\u0647\u062f\u0647 \u06af\u0632\u0627\u0631\u0634',
           ),
         ),
       ],

@@ -7,9 +7,138 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketbase/pocketbase.dart';
 
+import 'auth_test_support.dart';
+
 const _connectionError = 'ارتباط با پایگاه داده برقرار نشد';
 
 void main() {
+  testWidgets(
+    'user sees read-only employees, reports and logout but no settings',
+    (tester) async {
+      final repository = _FakeEmployeeRepository()
+        ..onGet = () async => [_employee()];
+      await _startApp(tester, repository, role: 'User');
+      await tester.pumpAndSettle();
+      expect(find.text('کاربر'), findsOneWidget);
+      expect(find.byIcon(Icons.settings_outlined), findsNothing);
+      await _openEmployees(tester);
+      expect(find.text('افزودن کارمند'), findsNothing);
+      expect(find.byTooltip('ویرایش'), findsNothing);
+      expect(find.byTooltip('حذف'), findsNothing);
+      await tester.ensureVisible(find.byTooltip('مشاهده'));
+      await tester.tap(find.byTooltip('مشاهده'));
+      await tester.pumpAndSettle();
+      expect(find.text('شناسه: server-record-1'), findsOneWidget);
+      await tester.tap(find.text('بستن'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.assessment_outlined));
+      await tester.pumpAndSettle();
+      expect(find.text('خروجی Excel'), findsOneWidget);
+      await tester.tap(find.text('خروج از حساب'));
+      await tester.pumpAndSettle();
+      expect(find.text('ورود به مدیریت کارکنان'), findsOneWidget);
+      expect(find.byIcon(Icons.assessment_outlined), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('server role downgrade removes an open editing dialog', (
+    tester,
+  ) async {
+    final repository = _FakeEmployeeRepository()
+      ..onGet = () async => [_employee()];
+    await _startApp(tester, repository);
+    await tester.pumpAndSettle();
+    final auth = tester
+        .widget<EmployeeManagerHome>(find.byType(EmployeeManagerHome))
+        .auth;
+    await _openEmployees(tester);
+    await tester.ensureVisible(find.byTooltip('ویرایش'));
+    await tester.tap(find.byTooltip('ویرایش'));
+    await tester.pumpAndSettle();
+    expect(find.text('ویرایش کارمند'), findsOneWidget);
+    auth.repository.client.authStore.save(
+      testToken(),
+      testUserRecord(role: 'User'),
+    );
+    await auth.refresh();
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+    expect(auth.canManageEmployees, isFalse);
+  });
+
+  testWidgets(
+    'reports share loading and retry states without a separate fetch',
+    (tester) async {
+      final loading = Completer<List<Employee>>();
+      final repository = _FakeEmployeeRepository()
+        ..onGet = () => loading.future;
+      await _startApp(tester, repository);
+      await tester.tap(find.byIcon(Icons.assessment_outlined));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(repository.getCalls, 1);
+      loading.completeError(
+        const EmployeeRepositoryException(_connectionError),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(_connectionError), findsOneWidget);
+      repository.onGet = () async => [];
+      await tester.tap(find.text('تلاش دوباره'));
+      await tester.pumpAndSettle();
+      expect(find.text('۰ کارمند یافت شد'), findsOneWidget);
+      expect(find.text('هنوز کارمندی ثبت نشده است.'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'خروجی Excel'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(repository.getCalls, 2);
+    },
+  );
+
+  testWidgets(
+    'reports filter shared employees live and expose all table columns',
+    (tester) async {
+      final repository = _FakeEmployeeRepository()
+        ..onGet = () async => [_employee()];
+      await _startApp(tester, repository);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.assessment_outlined));
+      await tester.pumpAndSettle();
+      expect(find.text('۱ کارمند یافت شد'), findsOneWidget);
+      expect(find.byType(DataTable), findsOneWidget);
+      expect(
+        tester.widget<DataTable>(find.byType(DataTable)).columns.length,
+        11,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('report-search')),
+        '۰۰۱۲۳۴۵۶۷۸',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('۱ کارمند یافت شد'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('report-search')),
+        'ناشناس',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('کارمندی با این فیلترها یافت نشد.'), findsOneWidget);
+      await tester.enterText(find.byKey(const ValueKey('report-search')), '');
+      await tester.tap(find.byKey(const ValueKey('report-status')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('غیرفعال').last);
+      await tester.pumpAndSettle();
+      expect(find.text('۰ کارمند یافت شد'), findsOneWidget);
+      expect(repository.getCalls, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('loads from the repository and can retry a failed initial load', (
     tester,
   ) async {
@@ -44,58 +173,65 @@ void main() {
     expect(repository.getCalls, 2);
   });
 
-  testWidgets(
-    'create waits for the server record and updates shared statistics',
-    (tester) async {
-      final creation = Completer<Employee>();
-      final repository = _FakeEmployeeRepository()
-        ..onCreate = (_) => creation.future;
-      await _startApp(tester, repository);
-      await tester.pumpAndSettle();
-      await _openEmployees(tester);
-      await tester.tap(find.text('افزودن کارمند'));
-      await tester.pumpAndSettle();
+  for (final nationalCode in [
+    '0012345678',
+    '۰۰۱۲۳۴۵۶۷۸',
+    '٠٠١٢٣٤٥٦٧٨',
+    '0۰١23۴٥6۷8',
+  ]) {
+    testWidgets(
+      'create saves national code $nationalCode and updates shared statistics',
+      (tester) async {
+        final creation = Completer<Employee>();
+        final repository = _FakeEmployeeRepository()
+          ..onCreate = (_) => creation.future;
+        await _startApp(tester, repository);
+        await tester.pumpAndSettle();
+        await _openEmployees(tester);
+        await tester.tap(find.text('افزودن کارمند'));
+        await tester.pumpAndSettle();
 
-      await _enterField(tester, 'نام', 'علی');
-      await _enterField(tester, 'نام خانوادگی', 'احمدی');
-      await _enterField(tester, 'کد ملی', '0012345678');
-      await _enterField(tester, 'شماره موبایل', '09121234567');
-      await _enterField(tester, 'کد پرسنلی', '1001');
-      await _enterField(tester, 'سمت', 'کارشناس');
-      await _enterField(tester, 'واحد سازمانی', 'اداری');
-      await tester.ensureVisible(find.text('انتخاب تاریخ استخدام'));
-      await tester.tap(find.text('انتخاب تاریخ استخدام'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('تأیید'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('ثبت کارمند'));
-      await tester.pump();
+        await _enterField(tester, 'نام', 'علی');
+        await _enterField(tester, 'نام خانوادگی', 'احمدی');
+        await _enterField(tester, 'کد ملی', nationalCode);
+        await _enterField(tester, 'شماره موبایل', '09121234567');
+        await _enterField(tester, 'کد پرسنلی', '1001');
+        await _enterField(tester, 'سمت', 'کارشناس');
+        await _enterField(tester, 'واحد سازمانی', 'اداری');
+        await tester.ensureVisible(find.text('انتخاب تاریخ استخدام'));
+        await tester.tap(find.text('انتخاب تاریخ استخدام'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('تأیید'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('ثبت کارمند'));
+        await tester.pump();
 
-      expect(repository.createCalls, 1);
-      expect(repository.lastCreated!.id, isEmpty);
-      expect(repository.lastCreated!.firstName, 'علی');
-      expect(repository.lastCreated!.nationalCode, '0012345678');
-      expect(find.byType(AlertDialog), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsWidgets);
-      expect(find.text('علی احمدی'), findsNothing);
+        expect(repository.createCalls, 1);
+        expect(repository.lastCreated!.id, isEmpty);
+        expect(repository.lastCreated!.firstName, 'علی');
+        expect(repository.lastCreated!.nationalCode, '0012345678');
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(find.byType(CircularProgressIndicator), findsWidgets);
+        expect(find.text('علی احمدی'), findsNothing);
 
-      final saved = _withIdentity(repository.lastCreated!, 'server-record-1');
-      creation.complete(saved);
-      await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsNothing);
-      expect(find.text(saved.fullName), findsOneWidget);
-      expect(find.text('کارمند با موفقیت ثبت شد.'), findsOneWidget);
+        final saved = _withIdentity(repository.lastCreated!, 'server-record-1');
+        creation.complete(saved);
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.text(saved.fullName), findsOneWidget);
+        expect(find.text('کارمند با موفقیت ثبت شد.'), findsOneWidget);
 
-      await _openDashboard(tester);
-      expect(_statValue(AppText.allEmployees, '۱ نفر'), findsOneWidget);
-      await _openEmployees(tester);
-      await tester.ensureVisible(find.byTooltip('مشاهده'));
-      await tester.tap(find.byTooltip('مشاهده'));
-      await tester.pumpAndSettle();
-      expect(find.text('شناسه: server-record-1'), findsOneWidget);
-      expect(repository.getCalls, 1);
-    },
-  );
+        await _openDashboard(tester);
+        expect(_statValue(AppText.allEmployees, '۱ نفر'), findsOneWidget);
+        await _openEmployees(tester);
+        await tester.ensureVisible(find.byTooltip('مشاهده'));
+        await tester.tap(find.byTooltip('مشاهده'));
+        await tester.pumpAndSettle();
+        expect(find.text('شناسه: server-record-1'), findsOneWidget);
+        expect(repository.getCalls, 1);
+      },
+    );
+  }
 
   testWidgets(
     'failed edit preserves the form and retry updates a filtered row',
@@ -193,11 +329,18 @@ void main() {
 
 Future<void> _startApp(
   WidgetTester tester,
-  EmployeeRepository repository,
-) async {
+  EmployeeRepository repository, {
+  String role = 'Admin',
+}) async {
   await tester.binding.setSurfaceSize(const Size(1600, 1100));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  await tester.pumpWidget(EmployeeManagerApp(repository: repository));
+  await tester.pumpWidget(
+    EmployeeManagerApp(
+      repository: repository,
+      authRepository: TestAuthRepository(role: role),
+    ),
+  );
+  await tester.pump();
 }
 
 Future<void> _openEmployees(WidgetTester tester) async {
@@ -264,6 +407,8 @@ Employee _withIdentity(Employee employee, String id) => Employee(
 );
 
 class _FakeEmployeeRepository extends EmployeeRepository {
+  @override
+  bool get canManageEmployees => true;
   _FakeEmployeeRepository() : super(PocketBase('http://example.test'));
 
   Future<List<Employee>> Function()? onGet;

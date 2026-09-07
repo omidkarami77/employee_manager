@@ -12,7 +12,7 @@ void main() {
 
   setUp(() {
     repository = FakeEmployeeRepository();
-    controller = EmployeesController(repository);
+    controller = EmployeesController(repository, canManage: () => true);
   });
 
   tearDown(() => controller.dispose());
@@ -218,7 +218,10 @@ void main() {
   test(
     'late mutation completion does not notify a disposed controller',
     () async {
-      final disposedController = EmployeesController(repository);
+      final disposedController = EmployeesController(
+        repository,
+        canManage: () => true,
+      );
       await disposedController.loadEmployees();
       final pending = Completer<Employee>();
       repository.create = (_) => pending.future;

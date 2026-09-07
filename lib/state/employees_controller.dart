@@ -6,9 +6,12 @@ import '../models/employee.dart';
 enum EmployeesStatus { loading, success, empty, error }
 
 class EmployeesController extends ChangeNotifier {
-  EmployeesController(this._repository);
+  EmployeesController(this._repository, {this.canManage});
 
   final EmployeeRepository _repository;
+  final bool Function()? canManage;
+  bool get canManageEmployees =>
+      canManage?.call() ?? _repository.canManageEmployees;
   List<Employee> _employees = const [];
   EmployeesStatus _status = EmployeesStatus.loading;
   String? _errorMessage;
@@ -97,6 +100,11 @@ class EmployeesController extends ChangeNotifier {
   }
 
   void _beginMutation() {
+    if (!canManageEmployees) {
+      throw const EmployeeRepositoryException(
+        'شما اجازه افزودن، ویرایش یا حذف کارکنان را ندارید.',
+      );
+    }
     if (_disposed) {
       throw const EmployeeRepositoryException('صفحه کارکنان بسته شده است');
     }

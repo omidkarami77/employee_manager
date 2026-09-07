@@ -4,6 +4,7 @@ import 'package:pocketbase/pocketbase.dart';
 
 import '../config/pocketbase_config.dart';
 import '../models/employee.dart';
+import '../models/app_user.dart';
 
 class EmployeeRepositoryException implements Exception {
   const EmployeeRepositoryException(
@@ -28,7 +29,7 @@ class EmployeeRecordMapper {
       id: record.id,
       firstName: record.getStringValue('first_name'),
       lastName: record.getStringValue('last_name'),
-      nationalCode: record.getStringValue('national_code'),
+      nationalCode: record.getStringValue('national_code_'),
       mobile: record.getStringValue('mobile'),
       personnelCode: record.getStringValue('personnel_code'),
       jobTitle: record.getStringValue('job_title'),
@@ -39,19 +40,29 @@ class EmployeeRecordMapper {
     );
   }
 
-  static Map<String, dynamic> toBody(Employee employee) => {
-    'first_name': employee.firstName,
-    'last_name': employee.lastName,
-    'national_code': employee.nationalCode,
-    'mobile': employee.mobile,
-    'personnel_code': employee.personnelCode,
-    'job_title': employee.jobTitle,
-    'department': employee.department,
-    'hire_date': _writeDate(employee.hireDate),
-    // PocketBase clears an optional date when it receives an empty string.
-    'end_date': employee.endDate == null ? '' : _writeDate(employee.endDate!),
-    'is_active': employee.isActive,
-  };
+  static Map<String, dynamic> toBody(
+    Employee employee, {
+    bool clearMissingEndDate = false,
+  }) {
+    final body = <String, dynamic>{
+      'first_name': employee.firstName,
+      'last_name': employee.lastName,
+      'national_code_': employee.nationalCode,
+      'mobile': employee.mobile,
+      'personnel_code': employee.personnelCode,
+      'job_title': employee.jobTitle,
+      'department': employee.department,
+      'hire_date': _writeDate(employee.hireDate),
+      'is_active': employee.isActive,
+    };
+    if (employee.endDate != null) {
+      body['end_date'] = _writeDate(employee.endDate!);
+    } else if (clearMissingEndDate) {
+      // PocketBase clears an optional date when it receives an empty string.
+      body['end_date'] = '';
+    }
+    return body;
+  }
 
   static DateTime _readDate(String value) {
     final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})(?:[ T]|$)')
@@ -84,15 +95,41 @@ class EmployeeRepository {
   final PocketBase _client;
   final Duration requestTimeout;
 
+  AppUser? get currentUser {
+    try {
+      return _client.authStore.isValid
+          ? AppUser.fromRecord(_client.authStore.record)
+          : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool get canManageEmployees => currentUser?.isAdmin == true;
+
+  void _requireAdmin() {
+    if (!canManageEmployees) {
+      throw const EmployeeRepositoryException(
+        'شما اجازه افزودن، ویرایش یا حذف کارکنان را ندارید.',
+      );
+    }
+  }
+
   RecordService get _collection =>
       _client.collection(PocketBaseConfig.employeesCollection);
 
   Future<List<Employee>> getEmployees() => _request(() async {
+    if (currentUser == null) {
+      throw const EmployeeRepositoryException(
+        'برای مشاهده کارکنان وارد حساب شوید.',
+      );
+    }
     final records = await _collection.getFullList(sort: 'last_name,first_name');
     return records.map(EmployeeRecordMapper.fromRecord).toList();
   });
 
   Future<Employee> createEmployee(Employee employee) => _request(() async {
+    _requireAdmin();
     final record = await _collection.create(
       body: EmployeeRecordMapper.toBody(employee),
     );
@@ -100,20 +137,24 @@ class EmployeeRepository {
   });
 
   Future<Employee> updateEmployee(Employee employee) => _request(() async {
+    _requireAdmin();
     final record = await _collection.update(
       employee.id,
-      body: EmployeeRecordMapper.toBody(employee),
+      body: EmployeeRecordMapper.toBody(employee, clearMissingEndDate: true),
     );
     return EmployeeRecordMapper.fromRecord(record);
   });
 
-  Future<void> deleteEmployee(String id) =>
-      _request(() => _collection.delete(id));
+  Future<void> deleteEmployee(String id) => _request(() {
+    _requireAdmin();
+    return _collection.delete(id);
+  });
 
   Future<T> _request<T>(Future<T> Function() operation) async {
     try {
       return await operation().timeout(requestTimeout);
     } on ClientException catch (error) {
+      if (error.statusCode == 401) _client.authStore.clear();
       throw _translateError(error);
     } on TimeoutException {
       throw const EmployeeRepositoryException(
@@ -156,7 +197,7 @@ class EmployeeRepository {
     const fieldNames = {
       'first_name': 'نام',
       'last_name': 'نام خانوادگی',
-      'national_code': 'کد ملی',
+      'national_code_': 'کد ملی',
       'mobile': 'شماره موبایل',
       'personnel_code': 'کد پرسنلی',
       'job_title': 'عنوان شغلی',
@@ -168,18 +209,23 @@ class EmployeeRepository {
     final fieldErrors = <String, String>{};
     final data = error.response['data'];
     if (data is Map) {
-      for (final entry in fieldNames.entries) {
-        final detail = data[entry.key];
+      for (final entry in data.entries) {
+        final field = entry.key.toString();
+        final detail = entry.value;
         if (detail is! Map) continue;
         final code = detail['code']?.toString() ?? '';
-        fieldErrors[entry.key] = code.contains('not_unique')
-            ? '${entry.value} تکراری است.'
-            : '${entry.value} معتبر نیست.';
+        final label = fieldNames[field] ?? field;
+        fieldErrors[field] = code.contains('not_unique')
+            ? '$label تکراری است.'
+            : '$label معتبر نیست.';
       }
     }
+    final serverMessage = error.response['message']?.toString();
     return EmployeeRepositoryException(
       fieldErrors.isEmpty
-          ? 'انجام عملیات امکان‌پذیر نیست. اطلاعات و دسترسی را بررسی کنید.'
+          ? (serverMessage == null || serverMessage.isEmpty
+                ? 'انجام عملیات امکان‌پذیر نیست. اطلاعات و دسترسی را بررسی کنید.'
+                : 'پایگاه داده: $serverMessage')
           : fieldErrors.values.join('\n'),
       fieldErrors: fieldErrors,
     );

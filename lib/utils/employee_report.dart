@@ -21,6 +21,7 @@ String normalizeReportSearch(String value) => value
 List<Employee> filterEmployeeReport(
   List<Employee> employees, {
   int minimumYears = 0,
+  int? maximumYears,
   bool? active,
   String query = '',
   required DateTime now,
@@ -31,6 +32,8 @@ List<Employee> filterEmployeeReport(
         (e) =>
             (active == null || e.isActive == active) &&
             employeeExperience(e, now: now).totalMonths >= minimumYears * 12 &&
+            (maximumYears == null ||
+                employeeExperience(e, now: now).years <= maximumYears) &&
             (search.isEmpty ||
                 [e.fullName, e.personnelCode, e.nationalCode].any(
                   (value) => normalizeReportSearch(value).contains(search),
@@ -48,6 +51,7 @@ const employeeReportHeaders = [
   'شماره موبایل',
   'سمت',
   'واحد سازمانی',
+  'آدرس',
   'تاریخ استخدام شمسی',
   'تاریخ پایان همکاری شمسی',
   'سابقه',

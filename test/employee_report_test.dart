@@ -80,6 +80,7 @@ void main() {
           '09123456789',
           'کارشناس',
           'اداری',
+          'تهران',
           '۱۳۹۵/۰۶/۱۷',
           '',
           '۱۰ سال و ۰ ماه',
@@ -95,7 +96,7 @@ void main() {
         sheet.rows.first.map((cell) => cell!.value.toString()).toList(),
         employeeReportHeaders,
       );
-      for (final index in [1, 3, 4, 5, 8, 10, 11]) {
+      for (final index in [1, 3, 4, 5, 8, 9, 11, 12]) {
         expect(sheet.rows[1][index]!.value, isA<TextCellValue>());
         expect(sheet.rows[1][index]!.value.toString(), rows.single[index]);
       }

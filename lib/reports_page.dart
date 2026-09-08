@@ -11,7 +11,7 @@ class _ReportsPage extends StatefulWidget {
 class _ReportsPageState extends State<_ReportsPage> {
   final _search = TextEditingController();
   final _horizontalScroll = ScrollController();
-  int _minimumYears = 0;
+  int _experienceRange = -1;
   int _status = 0;
   bool _exporting = false;
 
@@ -36,6 +36,7 @@ class _ReportsPageState extends State<_ReportsPage> {
         e.mobile,
         e.jobTitle,
         e.department,
+        e.address,
         _jalali(e.hireDate),
         e.endDate == null ? '' : _jalali(e.endDate!),
         _fa(employeeExperience(e, now: now).toString()),
@@ -66,7 +67,13 @@ class _ReportsPageState extends State<_ReportsPage> {
     final now = DateTime.now();
     final employees = filterEmployeeReport(
       widget.controller.employees,
-      minimumYears: _minimumYears,
+      minimumYears: switch (_experienceRange) {
+        15 => 11,
+        20 => 16,
+        30 => 21,
+        _ => 0,
+      },
+      maximumYears: _experienceRange < 0 ? null : _experienceRange,
       active: _status == 0 ? null : _status == 1,
       query: _search.text,
       now: now,
@@ -96,22 +103,20 @@ class _ReportsPageState extends State<_ReportsPage> {
                 child: DropdownButtonFormField<int>(
                   key: const ValueKey('report-experience'),
                   isExpanded: true,
-                  initialValue: _minimumYears,
+                  initialValue: _experienceRange,
                   decoration: const InputDecoration(
-                    labelText: 'حداقل سابقه',
+                    labelText: 'بازه سابقه',
                     border: OutlineInputBorder(),
                   ),
-                  items: [0, 5, 10, 15, 20]
-                      .map(
-                        (years) => DropdownMenuItem(
-                          value: years,
-                          child: Text(
-                            years == 0 ? 'همه' : '${_fa('$years')} سال به بالا',
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() => _minimumYears = value!),
+                  items: const [
+                    DropdownMenuItem(value: -1, child: Text('همه')),
+                    DropdownMenuItem(value: 10, child: Text('تا ۱۰ سال')),
+                    DropdownMenuItem(value: 15, child: Text('۱۱ تا ۱۵ سال')),
+                    DropdownMenuItem(value: 20, child: Text('۱۶ تا ۲۰ سال')),
+                    DropdownMenuItem(value: 30, child: Text('۲۱ تا ۳۰ سال')),
+                  ]
+                  .toList(),
+                  onChanged: (value) => setState(() => _experienceRange = value!),
                 ),
               ),
               SizedBox(

@@ -27,14 +27,12 @@ class AppText {
   static const employees = '\u06a9\u0627\u0631\u06a9\u0646\u0627\u0646';
   static const reports = '\u06af\u0632\u0627\u0631\u0634\u200c\u0647\u0627';
   static const settings = '\u062a\u0646\u0638\u06cc\u0645\u0627\u062a';
-  static const allEmployees =
-      '\u06a9\u0644 \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646';
-  static const overTenYears =
-      '\u0633\u0627\u0628\u0642\u0647 \u0628\u0627\u0644\u0627\u06cc \u06f1\u06f0 \u0633\u0627\u0644';
-  static const overFifteenYears =
-      '\u0633\u0627\u0628\u0642\u0647 \u0628\u0627\u0644\u0627\u06cc \u06f1\u06f5 \u0633\u0627\u0644';
-  static const overTwentyYears =
-      '\u0633\u0627\u0628\u0642\u0647 \u0628\u0627\u0644\u0627\u06cc \u06f2\u06f0 \u0633\u0627\u0644';
+  // Kept for existing widgets and tests that refer to the total label.
+  static const allEmployees = '\u06a9\u0644 \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646';
+  static const upToTenYears = 'تا ۱۰ سال سابقه';
+  static const elevenToFifteenYears = '۱۱ تا ۱۵ سال سابقه';
+  static const sixteenToTwentyYears = '۱۶ تا ۲۰ سال سابقه';
+  static const twentyOneToThirtyYears = '۲۱ تا ۳۰ سال سابقه';
 }
 
 class EmployeeManagerApp extends StatefulWidget {
@@ -1421,34 +1419,37 @@ class _StatsGrid extends StatelessWidget {
   final List<Employee> employees;
   List<_Stat> get stats {
     final now = DateTime.now();
-    int count(int years) => employees
-        .where((e) => employeeExperience(e, now: now).years >= years)
+    int count(int minimum, int maximum) => employees
+        .where((e) {
+          final years = employeeExperience(e, now: now).years;
+          return years >= minimum && years <= maximum;
+        })
         .length;
     return [
       _Stat(
-        AppText.allEmployees,
-        _fa('${employees.length}'),
+        AppText.upToTenYears,
+        _fa('${count(0, 10)}'),
         Icons.groups_rounded,
         const Color(0xFF315C9B),
         const Color(0xFFE8F0FE),
       ),
       _Stat(
-        AppText.overTenYears,
-        _fa('${count(10)}'),
+        AppText.elevenToFifteenYears,
+        _fa('${count(11, 15)}'),
         Icons.workspace_premium_outlined,
         const Color(0xFF8B5C18),
         const Color(0xFFFFF3DD),
       ),
       _Stat(
-        AppText.overFifteenYears,
-        _fa('${count(15)}'),
+        AppText.sixteenToTwentyYears,
+        _fa('${count(16, 20)}'),
         Icons.military_tech_outlined,
         const Color(0xFF7D4C9E),
         const Color(0xFFF4E9FC),
       ),
       _Stat(
-        AppText.overTwentyYears,
-        _fa('${count(20)}'),
+        AppText.twentyOneToThirtyYears,
+        _fa('${count(21, 30)}'),
         Icons.emoji_events_outlined,
         const Color(0xFF217A67),
         const Color(0xFFE2F5F0),

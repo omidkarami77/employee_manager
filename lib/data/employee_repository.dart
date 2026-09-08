@@ -1,5 +1,6 @@
 import 'dart:async';
-
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:pocketbase/pocketbase.dart';
 
 import '../config/pocketbase_config.dart';
@@ -37,6 +38,10 @@ class EmployeeRecordMapper {
       hireDate: _readDate(record.getStringValue('hire_date')),
       endDate: endDate.isEmpty ? null : _readDate(endDate),
       isActive: record.getBoolValue('is_active'),
+      photo: record.getStringValue('photo'),
+      documents: _fileNames(record.data['documents']),
+      // Existing records created before this field was added have null here.
+      address: record.data['address']?.toString() ?? '',
     );
   }
 
@@ -52,6 +57,7 @@ class EmployeeRecordMapper {
       'personnel_code': employee.personnelCode,
       'job_title': employee.jobTitle,
       'department': employee.department,
+      'address': employee.address,
       'hire_date': _writeDate(employee.hireDate),
       'is_active': employee.isActive,
     };
@@ -78,6 +84,25 @@ class EmployeeRecordMapper {
       throw const FormatException('Invalid employee date');
     }
     return date;
+  }
+
+  /// Supports both PocketBase's native JSON array and older/string responses.
+  static List<String> _fileNames(dynamic value) {
+    if (value is List) {
+      return value.map((item) => item.toString()).where((name) => name.isNotEmpty).toList();
+    }
+    if (value is String && value.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is List) {
+          return decoded.map((item) => item.toString()).where((name) => name.isNotEmpty).toList();
+        }
+      } on FormatException {
+        // A single-file response is still useful to show in the profile.
+      }
+      return [value];
+    }
+    return const [];
   }
 
   // Employment dates are calendar days, not instants. Encoding their components
@@ -133,7 +158,7 @@ class EmployeeRepository {
     final record = await _collection.create(
       body: EmployeeRecordMapper.toBody(employee),
     );
-    return EmployeeRecordMapper.fromRecord(record);
+    return EmployeeRecordMapper.fromRecord(await _collection.getOne(record.id));
   });
 
   Future<Employee> updateEmployee(Employee employee) => _request(() async {
@@ -149,6 +174,50 @@ class EmployeeRepository {
     _requireAdmin();
     return _collection.delete(id);
   });
+
+  Uri fileUrl(Employee employee, String filename, {bool download = false}) =>
+      _client.files.getURL(
+        RecordModel({
+          'id': employee.id,
+          'collectionName': PocketBaseConfig.employeesCollection,
+        }),
+        filename,
+        download: download,
+      );
+
+  Future<Employee> uploadPhoto(Employee employee, String path) => _request(() async {
+    _requireAdmin();
+    final record = await _collection.update(
+      employee.id,
+      files: [await http.MultipartFile.fromPath('photo', path)],
+    );
+    return EmployeeRecordMapper.fromRecord(record);
+  });
+
+  Future<Employee> uploadDocuments(Employee employee, List<String> paths) =>
+      _request(() async {
+        _requireAdmin();
+        if (paths.isEmpty) return employee;
+        final files = await Future.wait(
+          // PocketBase uses the + suffix to append to a multi-file field.
+          // Without it, each upload replaces the existing documents.
+          paths.map(
+            (path) => http.MultipartFile.fromPath('documents+', path),
+          ),
+        );
+        final record = await _collection.update(employee.id, files: files);
+        return EmployeeRecordMapper.fromRecord(await _collection.getOne(record.id));
+      });
+
+  Future<Employee> deleteDocument(Employee employee, String filename) =>
+      _request(() async {
+        _requireAdmin();
+        final record = await _collection.update(
+          employee.id,
+          body: {'documents-': filename},
+        );
+        return EmployeeRecordMapper.fromRecord(await _collection.getOne(record.id));
+      });
 
   Future<T> _request<T>(Future<T> Function() operation) async {
     try {
@@ -202,6 +271,7 @@ class EmployeeRepository {
       'personnel_code': 'کد پرسنلی',
       'job_title': 'عنوان شغلی',
       'department': 'واحد سازمانی',
+      'address': 'آدرس',
       'hire_date': 'تاریخ استخدام',
       'end_date': 'تاریخ پایان همکاری',
       'is_active': 'وضعیت همکاری',

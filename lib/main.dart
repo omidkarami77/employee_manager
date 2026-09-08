@@ -9,6 +9,7 @@ import 'state/employees_controller.dart';
 import 'utils/experience.dart';
 import 'utils/employee_report.dart';
 import 'utils/localized_digits_formatter.dart';
+import 'employee_details_page.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -574,52 +575,18 @@ class _EmployeesPageState extends State<_EmployeesPage> {
     }
   }
 
-  void _view(Employee e) => showDialog<void>(
-    useRootNavigator: false,
-    context: context,
-    builder: (context) => Directionality(
-      textDirection: TextDirection.rtl,
-      child: AlertDialog(
-        title: const Text('جزئیات کارمند'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children:
-                {
-                      'شناسه': e.id,
-                      'نام': e.firstName,
-                      'نام خانوادگی': e.lastName,
-                      'کد ملی': e.nationalCode,
-                      'شماره موبایل': e.mobile,
-                      'کد پرسنلی': e.personnelCode,
-                      'سمت': e.jobTitle,
-                      'واحد سازمانی': e.department,
-                      'تاریخ استخدام': _jalali(e.hireDate),
-                      'تاریخ پایان همکاری': e.endDate == null
-                          ? '—'
-                          : _jalali(e.endDate!),
-                      'وضعیت': e.isActive ? 'فعال' : 'غیرفعال',
-                      'سابقه کار': _fa(employeeExperience(e).toString()),
-                    }.entries
-                    .map(
-                      (x) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Text('${x.key}: ${x.value}'),
-                      ),
-                    )
-                    .toList(),
-          ),
+  Future<void> _view(Employee e) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => EmployeeDetailsPage(
+          employee: e,
+          controller: widget.controller,
+          repository: widget.controller.repository,
+          onEdit: () => _addEmployee(e),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('بستن'),
-          ),
-        ],
       ),
-    ),
-  );
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final employees = _shown;
@@ -813,7 +780,8 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       _mobile = TextEditingController(),
       _code = TextEditingController(),
       _title = TextEditingController(),
-      _department = TextEditingController();
+      _department = TextEditingController(),
+      _address = TextEditingController();
   DateTime? _hireDate;
   DateTime? _endDate;
   bool _active = true;
@@ -831,6 +799,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
     _code.text = e.personnelCode;
     _title.text = e.jobTitle;
     _department.text = e.department;
+    _address.text = e.address;
     _hireDate = e.hireDate;
     _endDate = e.endDate;
     _active = e.isActive;
@@ -860,6 +829,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       _code,
       _title,
       _department,
+      _address,
     ]) {
       c.dispose();
     }
@@ -943,6 +913,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       nationalCode: _nationalId.text.trim(),
       jobTitle: _title.text.trim(),
       department: _department.text.trim(),
+      address: _address.text.trim(),
       endDate: _active ? null : _endDate,
     );
     setState(() => _saving = true);
@@ -1069,6 +1040,14 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                             controller: _department,
                             validator: _required,
                             decoration: _dec('واحد سازمانی'),
+                          ),
+                        ),
+                        _FormField(
+                          child: TextFormField(
+                            controller: _address,
+                            minLines: 2,
+                            maxLines: 3,
+                            decoration: _dec('آدرس'),
                           ),
                         ),
                         _FormField(

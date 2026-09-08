@@ -11,6 +11,9 @@ class Employee {
     required this.hireDate,
     this.endDate,
     required this.isActive,
+    this.photo = '',
+    this.documents = const [],
+    this.address = '',
   });
   final String id,
       firstName,
@@ -23,5 +26,8 @@ class Employee {
   final DateTime hireDate;
   final DateTime? endDate;
   final bool isActive;
+  final String photo;
+  final List<String> documents;
+  final String address;
   String get fullName => '$firstName $lastName'.trim();
 }

@@ -9,6 +9,7 @@ class EmployeesController extends ChangeNotifier {
   EmployeesController(this._repository, {this.canManage});
 
   final EmployeeRepository _repository;
+  EmployeeRepository get repository => _repository;
   final bool Function()? canManage;
   bool get canManageEmployees =>
       canManage?.call() ?? _repository.canManageEmployees;
@@ -94,6 +95,37 @@ class EmployeesController extends ChangeNotifier {
       rethrow;
     } catch (_) {
       throw const EmployeeRepositoryException('حذف کارمند با خطا مواجه شد');
+    } finally {
+      _endMutation();
+    }
+  }
+
+  Future<Employee> uploadPhoto(Employee employee, String path) =>
+      _saveFileOperation(() => _repository.uploadPhoto(employee, path));
+
+  Future<Employee> uploadDocuments(Employee employee, List<String> paths) =>
+      _saveFileOperation(() => _repository.uploadDocuments(employee, paths));
+
+  Future<Employee> deleteDocument(Employee employee, String filename) =>
+      _saveFileOperation(() => _repository.deleteDocument(employee, filename));
+
+  Future<Employee> _saveFileOperation(Future<Employee> Function() operation) async {
+    _beginMutation();
+    try {
+      final saved = await operation();
+      if (!_disposed) {
+        final index = _employees.indexWhere((item) => item.id == saved.id);
+        if (index >= 0) {
+          final updated = List<Employee>.of(_employees)..[index] = saved;
+          _employees = updated;
+          notifyListeners();
+        }
+      }
+      return saved;
+    } on EmployeeRepositoryException {
+      rethrow;
+    } catch (_) {
+      throw const EmployeeRepositoryException('عملیات فایل با خطا مواجه شد.');
     } finally {
       _endMutation();
     }

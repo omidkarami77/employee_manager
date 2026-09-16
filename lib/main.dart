@@ -781,6 +781,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       _title = TextEditingController(),
       _department = TextEditingController(),
       _address = TextEditingController();
+  String? _province;
   DateTime? _hireDate;
   DateTime? _endDate;
   bool _active = true;
@@ -798,6 +799,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
     _code.text = e.personnelCode;
     _title.text = e.jobTitle;
     _department.text = e.department;
+    _province = e.province.isEmpty ? null : e.province;
     _address.text = e.address;
     _hireDate = e.hireDate;
     _endDate = e.endDate;
@@ -912,6 +914,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       nationalCode: _nationalId.text.trim(),
       jobTitle: _title.text.trim(),
       department: _department.text.trim(),
+      province: _province!,
       address: _address.text.trim(),
       endDate: _active ? null : _endDate,
     );
@@ -1039,6 +1042,33 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                             controller: _department,
                             validator: _required,
                             decoration: _dec('واحد سازمانی'),
+                          ),
+                        ),
+                        _FormField(
+                          child: DropdownButtonFormField<String>(
+                            key: const ValueKey('employee-province'),
+                            isExpanded: true,
+                            value: _province,
+                            validator: _required,
+                            decoration: _dec('استان'),
+                            items: [
+                              // Preserve a legacy value during editing, even
+                              // if it was entered before provinces were fixed.
+                              if (_province != null &&
+                                  !iranProvinces.contains(_province))
+                                DropdownMenuItem(
+                                  value: _province,
+                                  child: Text(_province!),
+                                ),
+                              ...iranProvinces.map(
+                                (province) => DropdownMenuItem(
+                                  value: province,
+                                  child: Text(province),
+                                ),
+                              ),
+                            ],
+                            onChanged: (value) =>
+                                setState(() => _province = value),
                           ),
                         ),
                         _FormField(

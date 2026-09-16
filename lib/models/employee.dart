@@ -8,6 +8,7 @@ class Employee {
     required this.personnelCode,
     required this.jobTitle,
     required this.department,
+    this.province = '',
     required this.hireDate,
     this.endDate,
     required this.isActive,
@@ -22,7 +23,8 @@ class Employee {
       mobile,
       personnelCode,
       jobTitle,
-      department;
+      department,
+      province;
   final DateTime hireDate;
   final DateTime? endDate;
   final bool isActive;

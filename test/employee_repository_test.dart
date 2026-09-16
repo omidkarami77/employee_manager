@@ -27,6 +27,7 @@ void main() {
       expect(employee.personnelCode, '0012');
       expect(employee.jobTitle, 'کارشناس');
       expect(employee.department, 'اداری');
+      expect(employee.province, 'تهران');
       expect(employee.hireDate, DateTime(2010, 3, 21));
       expect(employee.endDate, DateTime(2024, 4, 2));
       expect(employee.isActive, isFalse);
@@ -112,6 +113,7 @@ void main() {
             'personnel_code': '0012',
             'job_title': 'کارشناس',
             'department': 'اداری',
+            'province': 'تهران',
             'hire_date': '2010-03-21T00:00:00.000Z',
             'is_active': true,
           });
@@ -313,6 +315,7 @@ Map<String, dynamic> _record({
   'personnel_code': '0012',
   'job_title': 'کارشناس',
   'department': 'اداری',
+  'province': 'تهران',
   'hire_date': '2010-03-21 00:00:00.000Z',
   'end_date': endDate,
   'is_active': isActive,
@@ -332,6 +335,7 @@ Employee _employee({
   personnelCode: '0012',
   jobTitle: 'کارشناس',
   department: 'اداری',
+  province: 'تهران',
   hireDate: hireDate ?? DateTime(2010, 3, 21),
   endDate: endDate,
   isActive: isActive,

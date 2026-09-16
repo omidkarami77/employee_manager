@@ -232,7 +232,8 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
     final values = <(String, String)>[
       ('کد پرسنلی', _employee.personnelCode), ('کد ملی', _employee.nationalCode),
       ('شماره موبایل', _employee.mobile), ('سمت', _employee.jobTitle),
-      ('واحد سازمانی', _employee.department), ('تاریخ استخدام', _formatDate(_employee.hireDate)),
+      ('واحد سازمانی', _employee.department), ('استان', _employee.province.isEmpty ? '—' : _employee.province),
+      ('تاریخ استخدام', _formatDate(_employee.hireDate)),
       ('آدرس', _employee.address.isEmpty ? '—' : _employee.address),
       ('تاریخ پایان همکاری', _employee.endDate == null ? '—' : _formatDate(_employee.endDate!)),
       ('سابقه', employeeExperience(_employee).toString()), ('وضعیت', _employee.isActive ? 'فعال' : 'غیرفعال'),

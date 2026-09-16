@@ -6,6 +6,41 @@ import 'package:file_selector/file_selector.dart';
 import '../models/employee.dart';
 import 'experience.dart';
 
+/// Official provinces of Iran, used consistently by the report filter.
+const iranProvinces = [
+  'آذربایجان شرقی',
+  'آذربایجان غربی',
+  'اردبیل',
+  'اصفهان',
+  'البرز',
+  'ایلام',
+  'بوشهر',
+  'تهران',
+  'چهارمحال و بختیاری',
+  'خراسان جنوبی',
+  'خراسان رضوی',
+  'خراسان شمالی',
+  'خوزستان',
+  'زنجان',
+  'سمنان',
+  'سیستان و بلوچستان',
+  'فارس',
+  'قزوین',
+  'قم',
+  'کردستان',
+  'کرمان',
+  'کرمانشاه',
+  'کهگیلویه و بویراحمد',
+  'گلستان',
+  'گیلان',
+  'لرستان',
+  'مازندران',
+  'مرکزی',
+  'هرمزگان',
+  'همدان',
+  'یزد',
+];
+
 String normalizeReportSearch(String value) => value
     .trim()
     .toLowerCase()
@@ -23,6 +58,7 @@ List<Employee> filterEmployeeReport(
   int minimumYears = 0,
   int? maximumYears,
   bool? active,
+  String? province,
   String query = '',
   required DateTime now,
 }) {
@@ -31,11 +67,14 @@ List<Employee> filterEmployeeReport(
       .where(
         (e) =>
             (active == null || e.isActive == active) &&
+            (province == null ||
+                normalizeReportSearch(e.province) ==
+                    normalizeReportSearch(province)) &&
             employeeExperience(e, now: now).totalMonths >= minimumYears * 12 &&
             (maximumYears == null ||
                 employeeExperience(e, now: now).years <= maximumYears) &&
             (search.isEmpty ||
-                [e.fullName, e.personnelCode, e.nationalCode].any(
+                [e.fullName, e.personnelCode, e.nationalCode, e.department, e.province].any(
                   (value) => normalizeReportSearch(value).contains(search),
                 )),
       )
@@ -51,6 +90,7 @@ const employeeReportHeaders = [
   'شماره موبایل',
   'سمت',
   'واحد سازمانی',
+  'استان',
   'آدرس',
   'تاریخ استخدام شمسی',
   'تاریخ پایان همکاری شمسی',

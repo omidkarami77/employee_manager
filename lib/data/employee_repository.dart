@@ -37,6 +37,8 @@ class EmployeeRecordMapper {
       personnelCode: record.getStringValue('personnel_code'),
       jobTitle: record.getStringValue('job_title'),
       department: record.getStringValue('department'),
+      // Records created before this field was added do not have a province.
+      province: record.data['province']?.toString() ?? '',
       hireDate: _readDate(record.getStringValue('hire_date')),
       endDate: endDate.isEmpty ? null : _readDate(endDate),
       isActive: record.getBoolValue('is_active'),
@@ -59,6 +61,7 @@ class EmployeeRecordMapper {
       'personnel_code': employee.personnelCode,
       'job_title': employee.jobTitle,
       'department': employee.department,
+      'province': employee.province,
       'address': employee.address,
       'hire_date': _writeDate(employee.hireDate),
       'is_active': employee.isActive,

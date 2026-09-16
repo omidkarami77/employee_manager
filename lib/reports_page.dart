@@ -13,6 +13,7 @@ class _ReportsPageState extends State<_ReportsPage> {
   final _horizontalScroll = ScrollController();
   int _experienceRange = -1;
   int _status = 0;
+  String? _province;
   bool _exporting = false;
 
   @override
@@ -36,6 +37,7 @@ class _ReportsPageState extends State<_ReportsPage> {
         e.mobile,
         e.jobTitle,
         e.department,
+        e.province,
         e.address,
         _jalali(e.hireDate),
         e.endDate == null ? '' : _jalali(e.endDate!),
@@ -75,6 +77,7 @@ class _ReportsPageState extends State<_ReportsPage> {
       },
       maximumYears: _experienceRange < 0 ? null : _experienceRange,
       active: _status == 0 ? null : _status == 1,
+      province: _province,
       query: _search.text,
       now: now,
     );
@@ -135,6 +138,31 @@ class _ReportsPageState extends State<_ReportsPage> {
                     DropdownMenuItem(value: 2, child: Text('غیرفعال')),
                   ],
                   onChanged: (value) => setState(() => _status = value!),
+                ),
+              ),
+              SizedBox(
+                width: 220,
+                child: DropdownButtonFormField<String?>(
+                  key: const ValueKey('report-province'),
+                  isExpanded: true,
+                  value: _province,
+                  decoration: const InputDecoration(
+                    labelText: 'استان',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('همه استان‌ها'),
+                    ),
+                    ...iranProvinces.map(
+                      (province) => DropdownMenuItem<String?>(
+                        value: province,
+                        child: Text(province),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) => setState(() => _province = value),
                 ),
               ),
               SizedBox(
@@ -218,6 +246,7 @@ class _ReportsPageState extends State<_ReportsPage> {
                         'کد ملی',
                         'شماره موبایل',
                         'واحد سازمانی',
+                        'استان',
                         'سمت',
                         'تاریخ استخدام',
                         'تاریخ پایان همکاری',
@@ -234,6 +263,7 @@ class _ReportsPageState extends State<_ReportsPage> {
                             DataCell(Text(e.nationalCode)),
                             DataCell(Text(e.mobile)),
                             DataCell(Text(e.department)),
+                            DataCell(Text(e.province.isEmpty ? '—' : e.province)),
                             DataCell(Text(e.jobTitle)),
                             DataCell(Text(_jalali(e.hireDate))),
                             DataCell(

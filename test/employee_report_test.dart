@@ -52,6 +52,20 @@ void main() {
     );
   });
 
+  test('province filter returns only the selected province', () {
+    final tehran = employee('tehran', now, province: 'تهران');
+    final fars = employee('fars', now, province: 'فارس');
+
+    expect(
+      filterEmployeeReport([tehran, fars], province: 'تهران', now: now),
+      [tehran],
+    );
+    expect(
+      filterEmployeeReport([tehran, fars], province: 'گیلان', now: now),
+      isEmpty,
+    );
+  });
+
   test('search accepts names and both codes including localized digits', () {
     for (final query in [
       'علی',
@@ -81,6 +95,7 @@ void main() {
           'کارشناس',
           'اداری',
           'تهران',
+          'تهران',
           '۱۳۹۵/۰۶/۱۷',
           '',
           '۱۰ سال و ۰ ماه',
@@ -96,7 +111,7 @@ void main() {
         sheet.rows.first.map((cell) => cell!.value.toString()).toList(),
         employeeReportHeaders,
       );
-      for (final index in [1, 3, 4, 5, 8, 9, 11, 12]) {
+      for (final index in [1, 3, 4, 5, 8, 9, 10, 12, 13]) {
         expect(sheet.rows[1][index]!.value, isA<TextCellValue>());
         expect(sheet.rows[1][index]!.value.toString(), rows.single[index]);
       }
@@ -104,7 +119,12 @@ void main() {
   );
 }
 
-Employee employee(String id, DateTime hireDate, {DateTime? endDate}) =>
+Employee employee(
+  String id,
+  DateTime hireDate, {
+  DateTime? endDate,
+  String province = '',
+}) =>
     Employee(
       id: id,
       firstName: 'علی',
@@ -114,6 +134,7 @@ Employee employee(String id, DateTime hireDate, {DateTime? endDate}) =>
       personnelCode: id,
       jobTitle: 'کارشناس',
       department: 'اداری',
+      province: province,
       hireDate: hireDate,
       endDate: endDate,
       isActive: endDate == null,

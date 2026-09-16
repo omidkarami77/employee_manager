@@ -198,6 +198,10 @@ void main() {
         await _enterField(tester, 'کد پرسنلی', '1001');
         await _enterField(tester, 'سمت', 'کارشناس');
         await _enterField(tester, 'واحد سازمانی', 'اداری');
+        await tester.tap(find.byKey(const ValueKey('employee-province')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('تهران').last);
+        await tester.pumpAndSettle();
         await tester.ensureVisible(find.text('انتخاب تاریخ استخدام'));
         await tester.tap(find.text('انتخاب تاریخ استخدام'));
         await tester.pumpAndSettle();
@@ -210,6 +214,7 @@ void main() {
         expect(repository.lastCreated!.id, isEmpty);
         expect(repository.lastCreated!.firstName, 'علی');
         expect(repository.lastCreated!.nationalCode, '0012345678');
+        expect(repository.lastCreated!.province, 'تهران');
         expect(find.byType(AlertDialog), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsWidgets);
         expect(find.text('علی احمدی'), findsNothing);

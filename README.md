@@ -13,7 +13,7 @@ flutter run -d windows
 
 برای اتصال به آدرس دیگری، `--dart-define=POCKETBASE_URL=<server-url>` را به دستور اجرا اضافه کنید.
 
-فیلدهای Collection عبارت‌اند از `first_name`، `last_name`، `national_code_`، `mobile`، `personnel_code`، `job_title`، `department`، `hire_date`، `end_date` و `is_active`. تاریخ‌ها به صورت روز تقویمی ذخیره می‌شوند؛ `end_date` اختیاری است و هنگام فعال شدن دوباره کارمند پاک می‌شود.
+فیلدهای Collection عبارت‌اند از `first_name`، `last_name`، `national_code_`، `mobile`، `personnel_code`، `job_title`، `department`، `province`، `hire_date`، `end_date` و `is_active`. تاریخ‌ها به صورت روز تقویمی ذخیره می‌شوند؛ `end_date` اختیاری است و هنگام فعال شدن دوباره کارمند پاک می‌شود.
 
 ورود از Auth Collection به نام `users` با ایمیل و رمز عبور انجام می‌شود. `AuthRepository` و `AuthCubit` حالت‌های initial، loading، authenticated، unauthenticated و error را مدیریت می‌کنند. احراز هویت و EmployeeRepository یک PocketBase client و AuthStore مشترک دارند. هنگام شروع برنامه، نشست ذخیره‌شده با `authRefresh` از سرور اعتبارسنجی می‌شود؛ نشست آفلاین یا نامعتبر اجازه ورود نمی‌دهد. نقش در بازگشت به برنامه و هر پنج دقیقه بازخوانی می‌شود. خروج، AuthStore و ذخیره امن نشست را پاک می‌کند و صفحه‌ها و فرم‌های باز کارکنان بسته می‌شوند.
 

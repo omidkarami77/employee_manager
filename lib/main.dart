@@ -580,7 +580,7 @@ class _EmployeesPageState extends State<_EmployeesPage> {
           employee: e,
           controller: widget.controller,
           repository: widget.controller.repository,
-          onEdit: () => _addEmployee(e),
+          onEdit: _addEmployee,
         ),
       ),
     );
@@ -729,9 +729,9 @@ class _EmployeesPageState extends State<_EmployeesPage> {
     );
   }
 
-  Future<void> _addEmployee([Employee? original]) async {
+  Future<Employee?> _addEmployee([Employee? original]) async {
     if (!widget.controller.canManageEmployees || widget.controller.isMutating) {
-      return;
+      return null;
     }
     final employee = await showDialog<Employee>(
       useRootNavigator: false,
@@ -754,6 +754,7 @@ class _EmployeesPageState extends State<_EmployeesPage> {
         ),
       );
     }
+    return employee;
   }
 }
 

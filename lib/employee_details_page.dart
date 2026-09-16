@@ -20,7 +20,7 @@ class EmployeeDetailsPage extends StatefulWidget {
   final Employee employee;
   final EmployeesController controller;
   final EmployeeRepository repository;
-  final Future<void> Function() onEdit;
+  final Future<Employee?> Function(Employee employee) onEdit;
 
   @override
   State<EmployeeDetailsPage> createState() => _EmployeeDetailsPageState();
@@ -39,13 +39,24 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
     _employee = widget.employee;
   }
 
+  Future<void> _editEmployee() async {
+    final saved = await widget.onEdit(_employee);
+    if (saved != null && mounted) setState(() => _employee = saved);
+  }
+
   Future<void> _pickPhoto() async {
     final result = await FilePicker.pickFile(
       type: FileType.image,
     );
-    final path = result?.path;
-    if (path == null) return;
-    await _runUpload(() => widget.controller.uploadPhoto(_employee, path));
+    if (result == null) return;
+    await _runUpload(
+      () async => widget.controller.uploadPhoto(
+        _employee,
+        await result.readAsBytes(),
+        result.name,
+      ),
+      successMessage: 'عکس پروفایل با موفقیت ذخیره شد.',
+    );
   }
 
   Future<void> _pickDocuments() async {
@@ -62,25 +73,35 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
   }
 
   Future<void> _savePendingDocuments() async {
-    final paths = _pendingDocuments
-        .map((file) => file.path)
-        .whereType<String>()
-        .toList();
-    if (paths.isEmpty) {
+    if (_pendingDocuments.isEmpty) {
       _message('فایل‌های انتخاب‌شده قابل خواندن نیستند.');
       return;
     }
     final saved = await _runUpload(
-      () => widget.controller.uploadDocuments(_employee, paths),
+      () async => widget.controller.uploadDocuments(
+        _employee,
+        await Future.wait(
+          _pendingDocuments.map(
+            (file) async => (file.name, await file.readAsBytes()),
+          ),
+        ),
+      ),
+      successMessage: 'مدارک با موفقیت ذخیره شدند.',
     );
     if (saved && mounted) setState(() => _pendingDocuments = const []);
   }
 
-  Future<bool> _runUpload(Future<Employee> Function() operation) async {
+  Future<bool> _runUpload(
+    Future<Employee> Function() operation, {
+    String? successMessage,
+  }) async {
     setState(() => _uploading = true);
     try {
       final saved = await operation();
-      if (mounted) setState(() => _employee = saved);
+      if (mounted) {
+        setState(() => _employee = saved);
+        if (successMessage != null) _message(successMessage);
+      }
       return true;
     } on EmployeeRepositoryException catch (error) {
       _message(error.message);
@@ -154,7 +175,7 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
         actions: [
           if (_isAdmin)
             TextButton.icon(
-              onPressed: _uploading ? null : widget.onEdit,
+              onPressed: _uploading ? null : _editEmployee,
               icon: const Icon(Icons.edit_outlined),
               label: const Text('ویرایش اطلاعات'),
             ),

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:http/http.dart' as http;
 import 'package:pocketbase/pocketbase.dart';
 
@@ -185,28 +187,47 @@ class EmployeeRepository {
         download: download,
       );
 
-  Future<Employee> uploadPhoto(Employee employee, String path) => _request(() async {
+  Future<Employee> uploadPhoto(
+    Employee employee,
+    Uint8List bytes,
+    String filename,
+  ) => _request(() async {
     _requireAdmin();
     final record = await _collection.update(
       employee.id,
-      files: [await http.MultipartFile.fromPath('photo', path)],
+      files: [http.MultipartFile.fromBytes('photo', bytes, filename: filename)],
     );
     return EmployeeRecordMapper.fromRecord(record);
   });
 
-  Future<Employee> uploadDocuments(Employee employee, List<String> paths) =>
+  Future<Employee> uploadDocuments(
+    Employee employee,
+    List<(String filename, Uint8List bytes)> documents,
+  ) =>
       _request(() async {
         _requireAdmin();
-        if (paths.isEmpty) return employee;
-        final files = await Future.wait(
-          // PocketBase uses the + suffix to append to a multi-file field.
-          // Without it, each upload replaces the existing documents.
-          paths.map(
-            (path) => http.MultipartFile.fromPath('documents+', path),
-          ),
-        );
+        if (documents.isEmpty) return employee;
+        // Use the field name directly for compatibility with the PocketBase
+        // version running on the local server.
+        final files = documents
+            .map(
+              (document) => http.MultipartFile.fromBytes(
+                'documents',
+                document.$2,
+                filename: document.$1,
+              ),
+            )
+            .toList();
         final record = await _collection.update(employee.id, files: files);
-        return EmployeeRecordMapper.fromRecord(await _collection.getOne(record.id));
+        final saved = EmployeeRecordMapper.fromRecord(
+          await _collection.getOne(record.id),
+        );
+        if (saved.documents.isEmpty) {
+          throw const EmployeeRepositoryException(
+            'سرور فایل‌های انتخاب‌شده را ذخیره نکرد. تنظیمات فیلد مدارک را بررسی کنید.',
+          );
+        }
+        return saved;
       });
 
   Future<Employee> deleteDocument(Employee employee, String filename) =>

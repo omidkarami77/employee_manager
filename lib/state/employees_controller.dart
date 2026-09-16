@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 
 import '../data/employee_repository.dart';
@@ -100,11 +102,20 @@ class EmployeesController extends ChangeNotifier {
     }
   }
 
-  Future<Employee> uploadPhoto(Employee employee, String path) =>
-      _saveFileOperation(() => _repository.uploadPhoto(employee, path));
+  Future<Employee> uploadPhoto(
+    Employee employee,
+    Uint8List bytes,
+    String filename,
+  ) => _saveFileOperation(
+    () => _repository.uploadPhoto(employee, bytes, filename),
+  );
 
-  Future<Employee> uploadDocuments(Employee employee, List<String> paths) =>
-      _saveFileOperation(() => _repository.uploadDocuments(employee, paths));
+  Future<Employee> uploadDocuments(
+    Employee employee,
+    List<(String filename, Uint8List bytes)> documents,
+  ) => _saveFileOperation(
+    () => _repository.uploadDocuments(employee, documents),
+  );
 
   Future<Employee> deleteDocument(Employee employee, String filename) =>
       _saveFileOperation(() => _repository.deleteDocument(employee, filename));

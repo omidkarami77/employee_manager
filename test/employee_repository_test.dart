@@ -26,7 +26,7 @@ void main() {
       expect(employee.mobile, '09123456789');
       expect(employee.personnelCode, '0012');
       expect(employee.jobTitle, 'کارشناس');
-      expect(employee.department, 'اداری');
+      expect(employee.department, Employee.organizationalUnit);
       expect(employee.province, 'تهران');
       expect(employee.hireDate, DateTime(2010, 3, 21));
       expect(employee.endDate, DateTime(2024, 4, 2));
@@ -114,6 +114,11 @@ void main() {
             'job_title': 'کارشناس',
             'department': 'اداری',
             'province': 'تهران',
+            'collaboration_type': '',
+            'educational_degree': '',
+            'last_service_unit': '',
+            'specialization': '',
+            'dispatch_date': '',
             'hire_date': '2010-03-21T00:00:00.000Z',
             'is_active': true,
           });

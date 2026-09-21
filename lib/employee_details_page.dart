@@ -232,10 +232,23 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
     final values = <(String, String)>[
       ('کد پرسنلی', _employee.personnelCode), ('کد ملی', _employee.nationalCode),
       ('شماره موبایل', _employee.mobile), ('سمت', _employee.jobTitle),
-      ('واحد سازمانی', _employee.department), ('استان', _employee.province.isEmpty ? '—' : _employee.province),
-      ('تاریخ استخدام', _formatDate(_employee.hireDate)),
-      ('آدرس', _employee.address.isEmpty ? '—' : _employee.address),
-      ('تاریخ پایان همکاری', _employee.endDate == null ? '—' : _formatDate(_employee.endDate!)),
+      ('وضعیت ایثارگری', _employee.sacrificeStatus.isEmpty ? '—' : _employee.sacrificeStatus),
+      ('نوع همکاری', _employee.collaborationType.isEmpty ? '—' : _employee.collaborationType),
+      ('مدرک تحصیلی', _employee.educationalDegree.isEmpty ? '—' : _employee.educationalDegree),
+      ('آخرین یگان خدمتی', _employee.lastServiceUnit.isEmpty ? '—' : _employee.lastServiceUnit),
+      ('تخصص', _employee.specialization.isEmpty ? '—' : _employee.specialization),
+      if (_employee.collaborationType == 'سرباز وظیفه')
+        ('تاریخ اعزام', _employee.dispatchDate == null ? '—' : _formatJalaliDate(_employee.dispatchDate!)),
+      ('واحد سازمانی', _employee.department), ('استان محل خدمت', _employee.province.isEmpty ? '—' : _employee.province),
+      ('تاریخ شروع همکاری', _formatJalaliDate(_employee.hireDate)),
+      ('آدرس محل سکونت', _employee.address.isEmpty ? '—' : _employee.address),
+      ('سابقه حضور در جبهه', _employee.hasBattlefrontService ? 'داشته است' : 'نداشته است'),
+      if (_employee.hasBattlefrontService) ...[
+        ('تاریخ حضور در جبهه', _employee.battlefrontStartDate == null ? '—' : _formatJalaliDate(_employee.battlefrontStartDate!)),
+        ('تاریخ پایان جبهه', _employee.battlefrontEndDate == null ? '—' : _formatJalaliDate(_employee.battlefrontEndDate!)),
+        ('عملیات‌های شرکت‌کرده', _employee.battleOperations.isEmpty ? '—' : _employee.battleOperations),
+      ],
+      ('تاریخ پایان همکاری', _employee.endDate == null ? '—' : _formatJalaliDate(_employee.endDate!)),
       ('سابقه', employeeExperience(_employee).toString()), ('وضعیت', _employee.isActive ? 'فعال' : 'غیرفعال'),
     ];
     return Card(child: Padding(
@@ -287,4 +300,43 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
   ));
 }
 
-String _formatDate(DateTime value) => '${value.year.toString().padLeft(4, '0')}/${value.month.toString().padLeft(2, '0')}/${value.day.toString().padLeft(2, '0')}';
+String _formatJalaliDate(DateTime value) {
+  final jalali = _toJalali(value.year, value.month, value.day);
+  return _toPersianDigits(
+    '${jalali.$1}/${jalali.$2.toString().padLeft(2, '0')}/${jalali.$3.toString().padLeft(2, '0')}',
+  );
+}
+
+(int, int, int) _toJalali(int year, int month, int day) {
+  final gregorianMonthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  final jalaliMonthDays = [31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29];
+  year -= 1600;
+  month--;
+  day--;
+  var days = 365 * year + ((year + 3) ~/ 4) - ((year + 99) ~/ 100) + ((year + 399) ~/ 400);
+  for (var index = 0; index < month; index++) {
+    days += gregorianMonthDays[index];
+  }
+  if (month > 1 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)) {
+    days++;
+  }
+  days += day - 79;
+  final cycles = days ~/ 12053;
+  days %= 12053;
+  var jalaliYear = 979 + 33 * cycles + 4 * (days ~/ 1461);
+  days %= 1461;
+  if (days >= 366) {
+    jalaliYear += (days - 1) ~/ 365;
+    days = (days - 1) % 365;
+  }
+  var jalaliMonth = 0;
+  while (jalaliMonth < 11 && days >= jalaliMonthDays[jalaliMonth]) {
+    days -= jalaliMonthDays[jalaliMonth++];
+  }
+  return (jalaliYear, jalaliMonth + 1, days + 1);
+}
+
+String _toPersianDigits(String value) => value.replaceAllMapped(
+  RegExp(r'\d'),
+  (match) => '۰۱۲۳۴۵۶۷۸۹'[int.parse(match.group(0)!)],
+);

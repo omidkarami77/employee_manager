@@ -36,7 +36,7 @@ class EmployeeRecordMapper {
       mobile: record.getStringValue('mobile'),
       personnelCode: record.getStringValue('personnel_code'),
       jobTitle: record.getStringValue('job_title'),
-      department: record.getStringValue('department'),
+      department: Employee.organizationalUnit,
       // Records created before this field was added do not have a province.
       province: record.data['province']?.toString() ?? '',
       hireDate: _readDate(record.getStringValue('hire_date')),
@@ -46,6 +46,16 @@ class EmployeeRecordMapper {
       documents: _fileNames(record.data['documents']),
       // Existing records created before this field was added have null here.
       address: record.data['address']?.toString() ?? '',
+      hasBattlefrontService: record.data['has_battlefront_service'] == true,
+      battlefrontStartDate: _optionalDate(record.data['battlefront_start_date']),
+      battlefrontEndDate: _optionalDate(record.data['battlefront_end_date']),
+      battleOperations: record.data['battle_operations']?.toString() ?? '',
+      sacrificeStatus: record.data['sacrifice_status']?.toString() ?? '',
+      collaborationType: record.data['collaboration_type']?.toString() ?? '',
+      educationalDegree: record.data['educational_degree']?.toString() ?? '',
+      lastServiceUnit: record.data['last_service_unit']?.toString() ?? '',
+      specialization: record.data['specialization']?.toString() ?? '',
+      dispatchDate: _optionalDate(record.data['dispatch_date']),
     );
   }
 
@@ -60,11 +70,27 @@ class EmployeeRecordMapper {
       'mobile': employee.mobile,
       'personnel_code': employee.personnelCode,
       'job_title': employee.jobTitle,
-      'department': employee.department,
+      'department': Employee.organizationalUnit,
       'province': employee.province,
       'address': employee.address,
       'hire_date': _writeDate(employee.hireDate),
       'is_active': employee.isActive,
+      'has_battlefront_service': employee.hasBattlefrontService,
+      'battlefront_start_date': employee.battlefrontStartDate == null
+          ? ''
+          : _writeDate(employee.battlefrontStartDate!),
+      'battlefront_end_date': employee.battlefrontEndDate == null
+          ? ''
+          : _writeDate(employee.battlefrontEndDate!),
+      'battle_operations': employee.battleOperations,
+      'sacrifice_status': employee.sacrificeStatus,
+      'collaboration_type': employee.collaborationType,
+      'educational_degree': employee.educationalDegree,
+      'last_service_unit': employee.lastServiceUnit,
+      'specialization': employee.specialization,
+      'dispatch_date': employee.dispatchDate == null
+          ? ''
+          : _writeDate(employee.dispatchDate!),
     };
     if (employee.endDate != null) {
       body['end_date'] = _writeDate(employee.endDate!);
@@ -89,6 +115,11 @@ class EmployeeRecordMapper {
       throw const FormatException('Invalid employee date');
     }
     return date;
+  }
+
+  static DateTime? _optionalDate(dynamic value) {
+    final date = value?.toString() ?? '';
+    return date.isEmpty ? null : _readDate(date);
   }
 
   /// Supports both PocketBase's native JSON array and older/string responses.
@@ -296,9 +327,10 @@ class EmployeeRepository {
       'job_title': 'عنوان شغلی',
       'department': 'واحد سازمانی',
       'address': 'آدرس',
-      'hire_date': 'تاریخ استخدام',
+      'hire_date': 'تاریخ شروع همکاری',
       'end_date': 'تاریخ پایان همکاری',
       'is_active': 'وضعیت همکاری',
+      'sacrifice_status': 'وضعیت ایثارگری',
     };
     final fieldErrors = <String, String>{};
     final data = error.response['data'];

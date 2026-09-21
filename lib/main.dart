@@ -663,7 +663,7 @@ class _EmployeesPageState extends State<_EmployeesPage> {
                     DataColumn(label: Text('نام و نام خانوادگی')),
                     DataColumn(label: Text('کد پرسنلی')),
                     DataColumn(label: Text('شماره موبایل')),
-                    DataColumn(label: Text('تاریخ استخدام')),
+                    DataColumn(label: Text('تاریخ شروع همکاری')),
                     DataColumn(label: Text('سابقه')),
                     DataColumn(label: Text('وضعیت')),
                     DataColumn(label: Text('عملیات')),
@@ -779,12 +779,21 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       _mobile = TextEditingController(),
       _code = TextEditingController(),
       _title = TextEditingController(),
-      _department = TextEditingController(),
-      _address = TextEditingController();
+      _lastServiceUnit = TextEditingController(),
+      _specialization = TextEditingController(),
+      _address = TextEditingController(),
+      _battleOperations = TextEditingController();
   String? _province;
+  String? _sacrificeStatus;
+  String? _collaborationType;
+  String? _educationalDegree;
   DateTime? _hireDate;
   DateTime? _endDate;
+  DateTime? _battlefrontStartDate;
+  DateTime? _battlefrontEndDate;
+  DateTime? _dispatchDate;
   bool _active = true;
+  bool _hasBattlefrontService = false;
   bool _saving = false;
   String? _saveError;
   @override
@@ -798,9 +807,21 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
     _mobile.text = e.mobile;
     _code.text = e.personnelCode;
     _title.text = e.jobTitle;
-    _department.text = e.department;
+    _lastServiceUnit.text = e.lastServiceUnit;
+    _specialization.text = e.specialization;
     _province = e.province.isEmpty ? null : e.province;
+    _sacrificeStatus =
+        e.sacrificeStatus.isEmpty ? null : e.sacrificeStatus;
+    _collaborationType =
+        e.collaborationType.isEmpty ? null : e.collaborationType;
+    _educationalDegree =
+        e.educationalDegree.isEmpty ? null : e.educationalDegree;
     _address.text = e.address;
+    _hasBattlefrontService = e.hasBattlefrontService;
+    _battlefrontStartDate = e.battlefrontStartDate;
+    _battlefrontEndDate = e.battlefrontEndDate;
+    _dispatchDate = e.dispatchDate;
+    _battleOperations.text = e.battleOperations;
     _hireDate = e.hireDate;
     _endDate = e.endDate;
     _active = e.isActive;
@@ -829,31 +850,61 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       _mobile,
       _code,
       _title,
-      _department,
+      _lastServiceUnit,
+      _specialization,
       _address,
+      _battleOperations,
     ]) {
       c.dispose();
     }
     super.dispose();
   }
 
-  Future<void> _pickDate({required bool endDate}) async {
+  Future<void> _pickDate({
+    required bool endDate,
+    bool battlefront = false,
+  }) async {
+    final selectedDate = battlefront
+        ? (endDate ? _battlefrontEndDate : _battlefrontStartDate)
+        : (endDate ? _endDate : _hireDate);
     final date = await showDialog<DateTime>(
       useRootNavigator: false,
       context: context,
       builder: (_) => _JalaliDatePicker(
-        initialDate: endDate ? _endDate : _hireDate,
-        title: endDate ? 'انتخاب تاریخ پایان همکاری' : 'انتخاب تاریخ استخدام',
+        initialDate: selectedDate,
+        title: battlefront
+            ? (endDate ? 'انتخاب تاریخ پایان جبهه' : 'انتخاب تاریخ حضور در جبهه')
+            : (endDate
+                  ? 'انتخاب تاریخ پایان همکاری'
+                  : 'انتخاب تاریخ شروع همکاری'),
       ),
     );
     if (date != null && mounted) {
       setState(() {
-        if (endDate) {
+        if (battlefront && endDate) {
+          _battlefrontEndDate = date;
+        } else if (battlefront) {
+          _battlefrontStartDate = date;
+        } else if (endDate) {
           _endDate = date;
         } else {
           _hireDate = date;
         }
       });
+    }
+  }
+
+  Future<void> _pickDispatchDate() async {
+    final date = await showDialog<DateTime>(
+      useRootNavigator: false,
+      context: context,
+      builder: (_) => _JalaliDatePicker(
+        initialDate: _dispatchDate,
+        title: 'انتخاب تاریخ اعزام',
+      ),
+    );
+    if (date != null && mounted) {
+      setState(() => _dispatchDate = date);
     }
   }
 
@@ -890,7 +941,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
     setState(() => _saveError = null);
     if (!_form.currentState!.validate()) return;
     if (_hireDate == null) {
-      setState(() => _saveError = 'تاریخ استخدام را انتخاب کنید.');
+      setState(() => _saveError = 'تاریخ شروع همکاری را انتخاب کنید.');
       return;
     }
     if (!_active && _endDate == null) {
@@ -903,6 +954,27 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       );
       return;
     }
+    if (_hasBattlefrontService &&
+        (_battlefrontStartDate == null ||
+            _battlefrontEndDate == null ||
+            _battleOperations.text.trim().isEmpty)) {
+      setState(
+        () => _saveError =
+            'تاریخ حضور، تاریخ پایان و عملیات‌های جبهه را وارد کنید.',
+      );
+      return;
+    }
+    if (_hasBattlefrontService &&
+        _battlefrontEndDate!.isBefore(_battlefrontStartDate!)) {
+      setState(
+        () => _saveError = 'تاریخ پایان جبهه نمی‌تواند قبل از تاریخ حضور باشد.',
+      );
+      return;
+    }
+    if (_collaborationType == 'سرباز وظیفه' && _dispatchDate == null) {
+      setState(() => _saveError = 'تاریخ اعزام را انتخاب کنید.');
+      return;
+    }
     final employee = Employee(
       id: widget.employee?.id ?? '',
       firstName: _first.text.trim(),
@@ -913,10 +985,23 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       isActive: _active,
       nationalCode: _nationalId.text.trim(),
       jobTitle: _title.text.trim(),
-      department: _department.text.trim(),
+      department: Employee.organizationalUnit,
       province: _province!,
+      sacrificeStatus: _sacrificeStatus!,
+      collaborationType: _collaborationType!,
+      educationalDegree: _educationalDegree!,
+      lastServiceUnit: _lastServiceUnit.text.trim(),
+      specialization: _specialization.text.trim(),
+      dispatchDate:
+          _collaborationType == 'سرباز وظیفه' ? _dispatchDate : null,
       address: _address.text.trim(),
       endDate: _active ? null : _endDate,
+      hasBattlefrontService: _hasBattlefrontService,
+      battlefrontStartDate:
+          _hasBattlefrontService ? _battlefrontStartDate : null,
+      battlefrontEndDate: _hasBattlefrontService ? _battlefrontEndDate : null,
+      battleOperations:
+          _hasBattlefrontService ? _battleOperations.text.trim() : '',
     );
     setState(() => _saving = true);
     try {
@@ -1039,36 +1124,159 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                         ),
                         _FormField(
                           child: TextFormField(
-                            controller: _department,
-                            validator: _required,
+                            key: const ValueKey('employee-department'),
+                            initialValue: Employee.organizationalUnit,
+                            readOnly: true,
                             decoration: _dec('واحد سازمانی'),
                           ),
                         ),
                         _FormField(
                           child: DropdownButtonFormField<String>(
-                            key: const ValueKey('employee-province'),
+                            key: const ValueKey('employee-sacrifice-status'),
                             isExpanded: true,
-                            value: _province,
+                            value: _sacrificeStatus,
                             validator: _required,
-                            decoration: _dec('استان'),
-                            items: [
-                              // Preserve a legacy value during editing, even
-                              // if it was entered before provinces were fixed.
-                              if (_province != null &&
-                                  !iranProvinces.contains(_province))
-                                DropdownMenuItem(
-                                  value: _province,
-                                  child: Text(_province!),
-                                ),
-                              ...iranProvinces.map(
-                                (province) => DropdownMenuItem(
-                                  value: province,
-                                  child: Text(province),
-                                ),
+                            decoration: _dec('وضعیت ایثارگری'),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'ندارد',
+                                child: Text('ندارد'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'آزاده',
+                                child: Text('آزاده'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'جانباز',
+                                child: Text('جانباز'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'ایثارگر',
+                                child: Text('ایثارگر'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'جانباز آزاده',
+                                child: Text('جانباز آزاده'),
                               ),
                             ],
                             onChanged: (value) =>
-                                setState(() => _province = value),
+                                setState(() => _sacrificeStatus = value),
+                          ),
+                        ),
+                        _FormField(
+                          child: DropdownButtonFormField<String>(
+                            key: const ValueKey('employee-collaboration-type'),
+                            isExpanded: true,
+                            value: _collaborationType,
+                            validator: _required,
+                            decoration: _dec('نوع همکاری'),
+                            items: const [
+                              DropdownMenuItem(value: 'نظامی شاغل', child: Text('نظامی شاغل')),
+                              DropdownMenuItem(value: 'سرباز وظیفه', child: Text('سرباز وظیفه')),
+                              DropdownMenuItem(value: 'پیشکوست شاغل ( هیئت مرکزی )', child: Text('پیشکوست شاغل ( هیئت مرکزی )')),
+                              DropdownMenuItem(value: 'پیشکوست شاغل ( گروه های استانی )', child: Text('پیشکوست شاغل ( گروه های استانی )')),
+                              DropdownMenuItem(value: 'اساتید', child: Text('اساتید')),
+                            ],
+                            onChanged: (value) =>
+                                setState(() {
+                                  _collaborationType = value;
+                                  if (value != 'سرباز وظیفه') {
+                                    _dispatchDate = null;
+                                  }
+                                }),
+                          ),
+                        ),
+                        if (_collaborationType == 'سرباز وظیفه')
+                          _FormField(
+                            child: OutlinedButton.icon(
+                              onPressed: _pickDispatchDate,
+                              icon: const Icon(Icons.calendar_month_outlined),
+                              label: Text(
+                                _dispatchDate == null
+                                    ? 'انتخاب تاریخ اعزام'
+                                    : _jalali(_dispatchDate!),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(56),
+                                alignment: Alignment.centerRight,
+                              ),
+                            ),
+                          ),
+                        _FormField(
+                          child: DropdownButtonFormField<String>(
+                            key: const ValueKey('employee-educational-degree'),
+                            isExpanded: true,
+                            value: _educationalDegree,
+                            validator: _required,
+                            decoration: _dec('مدرک تحصیلی'),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'بی سواد',
+                                child: Text('بی سواد'),
+                              ),
+                              DropdownMenuItem(value: 'سیکل', child: Text('سیکل')),
+                              DropdownMenuItem(value: 'دیپلم', child: Text('دیپلم')),
+                              DropdownMenuItem(value: 'فوق دیپلم', child: Text('فوق دیپلم')),
+                              DropdownMenuItem(value: 'لیسانس', child: Text('لیسانس')),
+                              DropdownMenuItem(value: 'فوق لیسانس', child: Text('فوق لیسانس')),
+                              DropdownMenuItem(value: 'دکترا', child: Text('دکترا')),
+                            ],
+                            onChanged: (value) =>
+                                setState(() => _educationalDegree = value),
+                          ),
+                        ),
+                        _FormField(
+                          child: TextFormField(
+                            controller: _lastServiceUnit,
+                            validator: _required,
+                            decoration: _dec('آخرین یگان خدمتی'),
+                          ),
+                        ),
+                        _FormField(
+                          child: TextFormField(
+                            controller: _specialization,
+                            validator: _required,
+                            decoration: _dec('تخصص'),
+                          ),
+                        ),
+                        _FormField(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              DropdownButtonFormField<String>(
+                                key: const ValueKey('employee-province'),
+                                isExpanded: true,
+                                value: _province,
+                                validator: _required,
+                                decoration: _dec('استان محل خدمت'),
+                                items: [
+                                  // Preserve a legacy value during editing, even
+                                  // if it was entered before provinces were fixed.
+                                  if (_province != null &&
+                                      !iranProvinces.contains(_province))
+                                    DropdownMenuItem(
+                                      value: _province,
+                                      child: Text(_province!),
+                                    ),
+                                  ...iranProvinces.map(
+                                    (province) => DropdownMenuItem(
+                                      value: province,
+                                      child: Text(province),
+                                    ),
+                                  ),
+                                ],
+                                onChanged: (value) =>
+                                    setState(() => _province = value),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'معارف جنگ: کدام استان در حال خدمت می‌باشید؟',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF667085),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         _FormField(
@@ -1076,16 +1284,80 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                             controller: _address,
                             minLines: 2,
                             maxLines: 3,
-                            decoration: _dec('آدرس'),
+                            decoration: _dec('آدرس محل سکونت'),
                           ),
                         ),
+                        _FormField(
+                          child: SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('سابقه حضور در جبهه'),
+                            subtitle: Text(
+                              _hasBattlefrontService ? 'داشته است' : 'نداشته است',
+                            ),
+                            value: _hasBattlefrontService,
+                            onChanged: (value) => setState(() {
+                              _hasBattlefrontService = value;
+                              if (!value) {
+                                _battlefrontStartDate = null;
+                                _battlefrontEndDate = null;
+                                _battleOperations.clear();
+                              }
+                            }),
+                          ),
+                        ),
+                        if (_hasBattlefrontService) ...[
+                          _FormField(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _pickDate(
+                                endDate: false,
+                                battlefront: true,
+                              ),
+                              icon: const Icon(Icons.event_available_outlined),
+                              label: Text(
+                                _battlefrontStartDate == null
+                                    ? 'انتخاب تاریخ حضور در جبهه'
+                                    : _jalali(_battlefrontStartDate!),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(56),
+                                alignment: Alignment.centerRight,
+                              ),
+                            ),
+                          ),
+                          _FormField(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _pickDate(
+                                endDate: true,
+                                battlefront: true,
+                              ),
+                              icon: const Icon(Icons.event_busy_outlined),
+                              label: Text(
+                                _battlefrontEndDate == null
+                                    ? 'انتخاب تاریخ پایان جبهه'
+                                    : _jalali(_battlefrontEndDate!),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(56),
+                                alignment: Alignment.centerRight,
+                              ),
+                            ),
+                          ),
+                          _FormField(
+                            child: TextFormField(
+                              controller: _battleOperations,
+                              minLines: 2,
+                              maxLines: 3,
+                              decoration: _dec('عملیات‌های شرکت‌کرده'),
+                            ),
+                          ),
+                        ],
                         _FormField(
                           child: OutlinedButton.icon(
                             onPressed: () => _pickDate(endDate: false),
                             icon: const Icon(Icons.calendar_month_outlined),
                             label: Text(
                               _hireDate == null
-                                  ? 'انتخاب تاریخ استخدام'
+                                  ? 'انتخاب تاریخ شروع همکاری'
                                   : _jalali(_hireDate!),
                             ),
                             style: OutlinedButton.styleFrom(

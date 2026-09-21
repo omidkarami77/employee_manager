@@ -14,6 +14,7 @@ class _ReportsPageState extends State<_ReportsPage> {
   int _experienceRange = -1;
   int _status = 0;
   String? _province;
+  String? _collaborationType;
   bool _exporting = false;
 
   @override
@@ -39,6 +40,16 @@ class _ReportsPageState extends State<_ReportsPage> {
         e.department,
         e.province,
         e.address,
+        e.sacrificeStatus,
+        e.collaborationType,
+        e.educationalDegree,
+        e.lastServiceUnit,
+        e.specialization,
+        e.dispatchDate == null ? '' : _jalali(e.dispatchDate!),
+        e.hasBattlefrontService ? 'دارد' : 'ندارد',
+        e.battlefrontStartDate == null ? '' : _jalali(e.battlefrontStartDate!),
+        e.battlefrontEndDate == null ? '' : _jalali(e.battlefrontEndDate!),
+        e.battleOperations,
         _jalali(e.hireDate),
         e.endDate == null ? '' : _jalali(e.endDate!),
         _fa(employeeExperience(e, now: now).toString()),
@@ -78,6 +89,7 @@ class _ReportsPageState extends State<_ReportsPage> {
       maximumYears: _experienceRange < 0 ? null : _experienceRange,
       active: _status == 0 ? null : _status == 1,
       province: _province,
+      collaborationType: _collaborationType,
       query: _search.text,
       now: now,
     );
@@ -166,6 +178,43 @@ class _ReportsPageState extends State<_ReportsPage> {
                 ),
               ),
               SizedBox(
+                width: 250,
+                child: DropdownButtonFormField<String?>(
+                  key: const ValueKey('report-collaboration-type'),
+                  isExpanded: true,
+                  value: _collaborationType,
+                  decoration: const InputDecoration(
+                    labelText: 'نوع همکاری',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('همه انواع همکاری'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'نظامی شاغل',
+                      child: Text('نظامی شاغل'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'سرباز وظیفه',
+                      child: Text('سرباز وظیفه'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'پیشکوست شاغل ( هیئت مرکزی )',
+                      child: Text('پیشکوست شاغل ( هیئت مرکزی )'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'پیشکوست شاغل ( گروه های استانی )',
+                      child: Text('پیشکوست شاغل ( گروه های استانی )'),
+                    ),
+                    DropdownMenuItem(value: 'اساتید', child: Text('اساتید')),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _collaborationType = value),
+                ),
+              ),
+              SizedBox(
                 width: 360,
                 child: TextField(
                   key: const ValueKey('report-search'),
@@ -247,8 +296,19 @@ class _ReportsPageState extends State<_ReportsPage> {
                         'شماره موبایل',
                         'واحد سازمانی',
                         'استان',
+                        'آدرس محل سکونت',
                         'سمت',
-                        'تاریخ استخدام',
+                        'وضعیت ایثارگری',
+                        'نوع همکاری',
+                        'مدرک تحصیلی',
+                        'آخرین یگان خدمتی',
+                        'تخصص',
+                        'تاریخ اعزام',
+                        'سابقه حضور در جبهه',
+                        'تاریخ حضور در جبهه',
+                        'تاریخ پایان جبهه',
+                        'عملیات‌های شرکت‌کرده',
+                        'تاریخ شروع همکاری',
                         'تاریخ پایان همکاری',
                         'سابقه',
                         'وضعیت',
@@ -264,7 +324,18 @@ class _ReportsPageState extends State<_ReportsPage> {
                             DataCell(Text(e.mobile)),
                             DataCell(Text(e.department)),
                             DataCell(Text(e.province.isEmpty ? '—' : e.province)),
+                            DataCell(Text(e.address.isEmpty ? '—' : e.address)),
                             DataCell(Text(e.jobTitle)),
+                            DataCell(Text(e.sacrificeStatus.isEmpty ? '—' : e.sacrificeStatus)),
+                            DataCell(Text(e.collaborationType.isEmpty ? '—' : e.collaborationType)),
+                            DataCell(Text(e.educationalDegree.isEmpty ? '—' : e.educationalDegree)),
+                            DataCell(Text(e.lastServiceUnit.isEmpty ? '—' : e.lastServiceUnit)),
+                            DataCell(Text(e.specialization.isEmpty ? '—' : e.specialization)),
+                            DataCell(Text(e.dispatchDate == null ? '—' : _jalali(e.dispatchDate!))),
+                            DataCell(Text(e.hasBattlefrontService ? 'دارد' : 'ندارد')),
+                            DataCell(Text(e.battlefrontStartDate == null ? '—' : _jalali(e.battlefrontStartDate!))),
+                            DataCell(Text(e.battlefrontEndDate == null ? '—' : _jalali(e.battlefrontEndDate!))),
+                            DataCell(Text(e.battleOperations.isEmpty ? '—' : e.battleOperations)),
                             DataCell(Text(_jalali(e.hireDate))),
                             DataCell(
                               Text(

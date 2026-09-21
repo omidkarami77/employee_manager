@@ -66,6 +66,42 @@ void main() {
     );
   });
 
+  test('collaboration-type filter returns only the selected employees', () {
+    final military = Employee(
+      id: 'military',
+      firstName: 'علی',
+      lastName: 'احمدی',
+      nationalCode: '0012345678',
+      mobile: '09123456789',
+      personnelCode: 'military',
+      jobTitle: 'کارشناس',
+      hireDate: now,
+      isActive: true,
+      collaborationType: 'نظامی شاغل',
+    );
+    final conscript = Employee(
+      id: 'conscript',
+      firstName: 'مریم',
+      lastName: 'احمدی',
+      nationalCode: '0012345679',
+      mobile: '09123456780',
+      personnelCode: 'conscript',
+      jobTitle: 'کارشناس',
+      hireDate: now,
+      isActive: true,
+      collaborationType: 'سرباز وظیفه',
+    );
+
+    expect(
+      filterEmployeeReport(
+        [military, conscript],
+        collaborationType: 'سرباز وظیفه',
+        now: now,
+      ),
+      [conscript],
+    );
+  });
+
   test('search accepts names and both codes including localized digits', () {
     for (final query in [
       'علی',

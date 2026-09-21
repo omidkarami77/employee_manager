@@ -59,6 +59,7 @@ List<Employee> filterEmployeeReport(
   int? maximumYears,
   bool? active,
   String? province,
+  String? collaborationType,
   String query = '',
   required DateTime now,
 }) {
@@ -70,11 +71,29 @@ List<Employee> filterEmployeeReport(
             (province == null ||
                 normalizeReportSearch(e.province) ==
                     normalizeReportSearch(province)) &&
+            (collaborationType == null ||
+                normalizeReportSearch(e.collaborationType) ==
+                    normalizeReportSearch(collaborationType)) &&
             employeeExperience(e, now: now).totalMonths >= minimumYears * 12 &&
             (maximumYears == null ||
                 employeeExperience(e, now: now).years <= maximumYears) &&
             (search.isEmpty ||
-                [e.fullName, e.personnelCode, e.nationalCode, e.department, e.province].any(
+                [
+                  e.fullName,
+                  e.personnelCode,
+                  e.nationalCode,
+                  e.mobile,
+                  e.jobTitle,
+                  e.department,
+                  e.province,
+                  e.address,
+                  e.sacrificeStatus,
+                  e.collaborationType,
+                  e.educationalDegree,
+                  e.lastServiceUnit,
+                  e.specialization,
+                  e.battleOperations,
+                ].any(
                   (value) => normalizeReportSearch(value).contains(search),
                 )),
       )
@@ -92,7 +111,17 @@ const employeeReportHeaders = [
   'واحد سازمانی',
   'استان',
   'آدرس',
-  'تاریخ استخدام شمسی',
+  'وضعیت ایثارگری',
+  'نوع همکاری',
+  'مدرک تحصیلی',
+  'آخرین یگان خدمتی',
+  'تخصص',
+  'تاریخ اعزام شمسی',
+  'سابقه حضور در جبهه',
+  'تاریخ حضور در جبهه شمسی',
+  'تاریخ پایان جبهه شمسی',
+  'عملیات‌های شرکت‌کرده',
+  'تاریخ شروع همکاری شمسی',
   'تاریخ پایان همکاری شمسی',
   'سابقه',
   'وضعیت',

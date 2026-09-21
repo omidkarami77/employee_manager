@@ -114,7 +114,7 @@ void main() {
       expect(find.byType(DataTable), findsOneWidget);
       expect(
         tester.widget<DataTable>(find.byType(DataTable)).columns.length,
-        11,
+        23,
       );
       await tester.enterText(
         find.byKey(const ValueKey('report-search')),
@@ -197,13 +197,37 @@ void main() {
         await _enterField(tester, 'شماره موبایل', '09121234567');
         await _enterField(tester, 'کد پرسنلی', '1001');
         await _enterField(tester, 'سمت', 'کارشناس');
-        await _enterField(tester, 'واحد سازمانی', 'اداری');
+        await _enterField(tester, 'آخرین یگان خدمتی', 'لشکر ۲۷ محمد رسول‌الله');
+        await _enterField(tester, 'تخصص', 'آموزش نظامی');
+        final departmentField = tester.widget<TextFormField>(
+          find.byKey(const ValueKey('employee-department')),
+        );
+        expect(departmentField.initialValue, Employee.organizationalUnit);
+        expect(departmentField.readOnly, isTrue);
+        await tester.tap(
+          find.byKey(const ValueKey('employee-sacrifice-status')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('ایثارگر').last);
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('employee-collaboration-type')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('نظامی شاغل').last);
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('employee-educational-degree')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('لیسانس').last);
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('employee-province')));
         await tester.pumpAndSettle();
         await tester.tap(find.text('تهران').last);
         await tester.pumpAndSettle();
-        await tester.ensureVisible(find.text('انتخاب تاریخ استخدام'));
-        await tester.tap(find.text('انتخاب تاریخ استخدام'));
+        await tester.ensureVisible(find.text('انتخاب تاریخ شروع همکاری'));
+        await tester.tap(find.text('انتخاب تاریخ شروع همکاری'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('تأیید'));
         await tester.pumpAndSettle();
@@ -214,7 +238,15 @@ void main() {
         expect(repository.lastCreated!.id, isEmpty);
         expect(repository.lastCreated!.firstName, 'علی');
         expect(repository.lastCreated!.nationalCode, '0012345678');
+        expect(
+          repository.lastCreated!.department,
+          Employee.organizationalUnit,
+        );
         expect(repository.lastCreated!.province, 'تهران');
+        expect(repository.lastCreated!.collaborationType, 'نظامی شاغل');
+        expect(repository.lastCreated!.educationalDegree, 'لیسانس');
+        expect(repository.lastCreated!.lastServiceUnit, 'لشکر ۲۷ محمد رسول‌الله');
+        expect(repository.lastCreated!.specialization, 'آموزش نظامی');
         expect(find.byType(AlertDialog), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsWidgets);
         expect(find.text('علی احمدی'), findsNothing);

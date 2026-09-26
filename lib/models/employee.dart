@@ -27,6 +27,7 @@ class Employee {
     this.lastServiceUnit = '',
     this.specialization = '',
     this.dispatchDate,
+    this.accommodationStatus = '',
   }) : department = organizationalUnit;
   final String id,
       firstName,
@@ -53,5 +54,6 @@ class Employee {
   final String lastServiceUnit;
   final String specialization;
   final DateTime? dispatchDate;
+  final String accommodationStatus;
   String get fullName => '$firstName $lastName'.trim();
 }

@@ -56,6 +56,7 @@ class EmployeeRecordMapper {
       lastServiceUnit: record.data['last_service_unit']?.toString() ?? '',
       specialization: record.data['specialization']?.toString() ?? '',
       dispatchDate: _optionalDate(record.data['dispatch_date']),
+      accommodationStatus: record.data['accommodation_status']?.toString() ?? '',
     );
   }
 
@@ -91,6 +92,7 @@ class EmployeeRecordMapper {
       'dispatch_date': employee.dispatchDate == null
           ? ''
           : _writeDate(employee.dispatchDate!),
+      'accommodation_status': employee.accommodationStatus,
     };
     if (employee.endDate != null) {
       body['end_date'] = _writeDate(employee.endDate!);

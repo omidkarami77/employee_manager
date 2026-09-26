@@ -119,6 +119,7 @@ void main() {
             'last_service_unit': '',
             'specialization': '',
             'dispatch_date': '',
+            'accommodation_status': '',
             'hire_date': '2010-03-21T00:00:00.000Z',
             'is_active': true,
           });

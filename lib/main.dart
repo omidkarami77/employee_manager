@@ -786,6 +786,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
   String? _province;
   String? _sacrificeStatus;
   String? _collaborationType;
+  String? _accommodationStatus;
   String? _educationalDegree;
   DateTime? _hireDate;
   DateTime? _endDate;
@@ -814,6 +815,8 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
         e.sacrificeStatus.isEmpty ? null : e.sacrificeStatus;
     _collaborationType =
         e.collaborationType.isEmpty ? null : e.collaborationType;
+    _accommodationStatus =
+        e.accommodationStatus.isEmpty ? null : e.accommodationStatus;
     _educationalDegree =
         e.educationalDegree.isEmpty ? null : e.educationalDegree;
     _address.text = e.address;
@@ -975,6 +978,10 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       setState(() => _saveError = 'تاریخ اعزام را انتخاب کنید.');
       return;
     }
+    if (_collaborationType == 'سرباز وظیفه' && _accommodationStatus == null) {
+      setState(() => _saveError = 'وضعیت اسکان را انتخاب کنید.');
+      return;
+    }
     final employee = Employee(
       id: widget.employee?.id ?? '',
       firstName: _first.text.trim(),
@@ -994,6 +1001,8 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       specialization: _specialization.text.trim(),
       dispatchDate:
           _collaborationType == 'سرباز وظیفه' ? _dispatchDate : null,
+      accommodationStatus:
+          _collaborationType == 'سرباز وظیفه' ? _accommodationStatus! : '',
       address: _address.text.trim(),
       endDate: _active ? null : _endDate,
       hasBattlefrontService: _hasBattlefrontService,
@@ -1182,10 +1191,27 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                                   _collaborationType = value;
                                   if (value != 'سرباز وظیفه') {
                                     _dispatchDate = null;
+                                    _accommodationStatus = null;
                                   }
                                 }),
                           ),
                         ),
+                        if (_collaborationType == 'سرباز وظیفه')
+                          _FormField(
+                            child: DropdownButtonFormField<String>(
+                              key: const ValueKey('employee-accommodation-status'),
+                              isExpanded: true,
+                              value: _accommodationStatus,
+                              validator: _required,
+                              decoration: _dec('وضعیت اسکان'),
+                              items: const [
+                                DropdownMenuItem(value: 'بومی', child: Text('بومی')),
+                                DropdownMenuItem(value: 'غیر بومی', child: Text('غیر بومی')),
+                              ],
+                              onChanged: (value) =>
+                                  setState(() => _accommodationStatus = value),
+                            ),
+                          ),
                         if (_collaborationType == 'سرباز وظیفه')
                           _FormField(
                             child: OutlinedButton.icon(

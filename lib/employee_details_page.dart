@@ -239,6 +239,8 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
       ('تخصص', _employee.specialization.isEmpty ? '—' : _employee.specialization),
       if (_employee.collaborationType == 'سرباز وظیفه')
         ('تاریخ اعزام', _employee.dispatchDate == null ? '—' : _formatJalaliDate(_employee.dispatchDate!)),
+      if (_employee.collaborationType == 'سرباز وظیفه')
+        ('وضعیت اسکان', _employee.accommodationStatus.isEmpty ? '—' : _employee.accommodationStatus),
       ('واحد سازمانی', _employee.department), ('استان محل خدمت', _employee.province.isEmpty ? '—' : _employee.province),
       ('تاریخ شروع همکاری', _formatJalaliDate(_employee.hireDate)),
       ('آدرس محل سکونت', _employee.address.isEmpty ? '—' : _employee.address),

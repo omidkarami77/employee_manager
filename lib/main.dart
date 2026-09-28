@@ -14,6 +14,7 @@ import 'employee_details_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:math' as math;
 
 part 'reports_page.dart';
 
@@ -494,10 +495,7 @@ class _DashboardPage extends StatelessWidget {
         ),
         const SizedBox(height: 20),
       ],
-      _InfoCard(
-        title: '\u062e\u0644\u0627\u0635\u0647 \u0648\u0636\u0639\u06cc\u062a \u0633\u0627\u0632\u0645\u0627\u0646',
-        text: '\u0627\u0637\u0644\u0627\u0639\u0627\u062a \u0648 \u06af\u0632\u0627\u0631\u0634\u200c\u0647\u0627\u06cc \u062a\u06a9\u0645\u06cc\u0644\u06cc \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646 \u062f\u0631 \u0627\u06cc\u0646 \u0628\u062e\u0634 \u0646\u0645\u0627\u06cc\u0634 \u062f\u0627\u062f\u0647 \u062e\u0648\u0627\u0647\u0646\u062f \u0634\u062f.',
-      ),
+      _DashboardChartsGrid(employees: controller.employees),
     ],
   );
 }
@@ -1864,6 +1862,572 @@ class _SettingRow extends StatelessWidget {
     subtitle: Text(subtitle),
     trailing: const Icon(Icons.chevron_left_rounded),
   );
+}
+
+class _DashboardChartsGrid extends StatelessWidget {
+  const _DashboardChartsGrid({required this.employees});
+  final List<Employee> employees;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      const gap = 16.0;
+      final columns = constraints.maxWidth >= 680 ? 2 : 1;
+      final cardWidth = (constraints.maxWidth - gap * (columns - 1)) / columns;
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [
+          SizedBox(width: cardWidth, child: _EmploymentStatusChart(employees)),
+          SizedBox(width: cardWidth, child: _ExperienceChart(employees)),
+          SizedBox(width: cardWidth, child: _EducationChart(employees)),
+          SizedBox(width: cardWidth, child: _HiringTrendChart(employees)),
+        ],
+      );
+    },
+  );
+}
+
+class _EmploymentStatusChart extends StatelessWidget {
+  const _EmploymentStatusChart(this.employees);
+  final List<Employee> employees;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = employees.where((employee) => employee.isActive).length;
+    final inactive = employees.length - active;
+    return _ChartCard(
+      title: '\u0648\u0636\u0639\u06cc\u062a \u0641\u0639\u0627\u0644\u06cc\u062a \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646',
+      child: _StatusPieChart(
+        active: active,
+        inactive: inactive,
+        total: employees.length,
+        labels: const ['\u0641\u0639\u0627\u0644', '\u063a\u06cc\u0631\u0641\u0639\u0627\u0644'],
+        colors: const [Color(0xFF217A67), Color(0xFFF2994A)],
+      ),
+    );
+  }
+}
+
+class _StatusPieChart extends StatelessWidget {
+  const _StatusPieChart({
+    required this.active,
+    required this.inactive,
+    required this.total,
+    required this.labels,
+    required this.colors,
+  });
+  final int active, inactive, total;
+  final List<String> labels;
+  final List<Color> colors;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    textDirection: TextDirection.ltr,
+    children: [
+      Expanded(
+        flex: 5,
+        child: SizedBox(
+          height: 170,
+          child: LayoutBuilder(
+            builder: (context, constraints) => GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapUp: (details) {
+                final index = _pieSliceAt(
+                  details.localPosition,
+                  constraints.biggest,
+                  [active, inactive],
+                );
+                if (index == null) return;
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '${labels[index]}: ${_fa('${index == 0 ? active : inactive}')} \u0646\u0641\u0631',
+                      ),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+              },
+              child: CustomPaint(
+                painter: _DonutChartPainter(active: active, total: total),
+                size: Size.infinite,
+              ),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 24),
+      Expanded(
+        flex: 6,
+        child: _ChartLegend(
+          items: [
+            _LegendItem(labels[0], active, colors[0]),
+            _LegendItem(labels[1], inactive, colors[1]),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+class _ExperienceChart extends StatelessWidget {
+  const _ExperienceChart(this.employees);
+  final List<Employee> employees;
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final values = [0, 0, 0, 0];
+    for (final employee in employees) {
+      final years = employeeExperience(employee, now: now).years;
+      values[years <= 10 ? 0 : years <= 15 ? 1 : years <= 20 ? 2 : 3]++;
+    }
+    return _ChartCard(
+      title: '\u062a\u0648\u0632\u06cc\u0639 \u0633\u0627\u0628\u0642\u0647 \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646',
+      child: _PieChart(
+        labels: const ['\u06f0\u2013\u06f1\u06f0', '\u06f1\u06f1\u2013\u06f1\u06f5', '\u06f1\u06f6\u2013\u06f2\u06f0', '\u06f2\u06f1+'],
+        values: values,
+        colors: const [
+          Color(0xFF2878B5),
+          Color(0xFF2E9D67),
+          Color(0xFFF0A12B),
+          Color(0xFF8B5CC7),
+        ],
+        detailSuffix: '\u0633\u0627\u0644 \u0633\u0627\u0628\u0642\u0647',
+      ),
+    );
+  }
+}
+
+class _EducationChart extends StatelessWidget {
+  const _EducationChart(this.employees);
+  final List<Employee> employees;
+  @override
+  Widget build(BuildContext context) {
+    const labels = [
+      '\u062f\u06cc\u067e\u0644\u0645',
+      '\u06a9\u0627\u0631\u062f\u0627\u0646\u06cc',
+      '\u06a9\u0627\u0631\u0634\u0646\u0627\u0633\u06cc',
+      '\u062a\u06a9\u0645\u06cc\u0644\u06cc',
+      '\u062b\u0628\u062a \u0646\u0634\u062f\u0647',
+    ];
+    final values = List<int>.filled(labels.length, 0);
+    for (final employee in employees) {
+      final degree = employee.educationalDegree.trim();
+      final index = degree.isEmpty
+          ? 4
+          : degree.contains('\u062f\u06cc\u067e\u0644\u0645')
+          ? 0
+          : degree.contains('\u06a9\u0627\u0631\u062f\u0627\u0646\u06cc')
+          ? 1
+          : degree.contains('\u06a9\u0627\u0631\u0634\u0646\u0627\u0633\u06cc')
+          ? 2
+          : 3;
+      values[index]++;
+    }
+    return _ChartCard(
+      title: '\u0633\u0637\u062d \u062a\u062d\u0635\u06cc\u0644\u0627\u062a',
+      child: _PieChart(
+        labels: labels,
+        values: values,
+        colors: const [
+          Color(0xFF2563EB),
+          Color(0xFF16A085),
+          Color(0xFFF39C12),
+          Color(0xFF8E44AD),
+          Color(0xFF98A2B3),
+        ],
+      ),
+    );
+  }
+}
+
+class _HiringTrendChart extends StatelessWidget {
+  const _HiringTrendChart(this.employees);
+  final List<Employee> employees;
+  @override
+  Widget build(BuildContext context) {
+    final year = DateTime.now().year;
+    final values = List<int>.generate(
+      5,
+      (i) => employees.where((e) => e.hireDate.year == year - 4 + i).length,
+    );
+    final labels = List<String>.generate(5, (i) => _fa('${year - 4 + i}'));
+    return _ChartCard(
+      title: '\u0631\u0648\u0646\u062f \u062c\u0630\u0628 \u067e\u0646\u062c \u0633\u0627\u0644 \u0627\u062e\u06cc\u0631',
+      child: _PieChart(
+        labels: labels,
+        values: values,
+        colors: const [
+          Color(0xFF0F766E),
+          Color(0xFF0284C7),
+          Color(0xFF7C3AED),
+          Color(0xFFDB2777),
+          Color(0xFFEA580C),
+        ],
+      ),
+    );
+  }
+}
+
+/*
+              child: LayoutBuilder(
+                builder: (context, constraints) => GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: (details) {
+                    final index = _pieSliceAt(
+                      details.localPosition,
+                      constraints.biggest,
+                      [active, inactive],
+                    );
+                    if (index == null) return;
+                    final label = index == 0 ? '\u0641\u0639\u0627\u0644' : '\u063a\u06cc\u0631\u0641\u0639\u0627\u0644';
+                    final count = index == 0 ? active : inactive;
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        SnackBar(
+                          content: Text('$label: ${_fa('$count')} \u0646\u0641\u0631'),
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                  },
+                  child: CustomPaint(
+                    painter: _DonutChartPainter(
+                      active: active,
+                      total: employees.length,
+                    ),
+                    size: Size.infinite,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 24),
+          _ChartLegend(
+            items: [
+              _LegendItem('\u0641\u0639\u0627\u0644', active, const Color(0xFF217A67)),
+              _LegendItem('\u063a\u06cc\u0631\u0641\u0639\u0627\u0644', inactive, const Color(0xFFE36A6A)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExperienceChartOld extends StatelessWidget {
+  const _ExperienceChart(this.employees);
+  final List<Employee> employees;
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final values = [0, 0, 0, 0];
+    for (final employee in employees) {
+      final years = employeeExperience(employee, now: now).years;
+      values[years <= 10 ? 0 : years <= 15 ? 1 : years <= 20 ? 2 : 3]++;
+    }
+    return _ChartCard(
+      title: '\u062a\u0648\u0632\u06cc\u0639 \u0633\u0627\u0628\u0642\u0647 \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646',
+      child: _PieChart(
+        labels: const ['\u06f0\u2013\u06f1\u06f0', '\u06f1\u06f1\u2013\u06f1\u06f5', '\u06f1\u06f6\u2013\u06f2\u06f0', '\u06f2\u06f1+'],
+        values: values,
+        colors: const [
+          Color(0xFF2878B5),
+          Color(0xFF2E9D67),
+          Color(0xFFF0A12B),
+          Color(0xFF8B5CC7),
+        ],
+        detailSuffix: '\u0633\u0627\u0644 \u0633\u0627\u0628\u0642\u0647',
+        legendOnLeft: true,
+      ),
+    );
+  }
+}
+
+class _EducationChart extends StatelessWidget {
+  const _EducationChart(this.employees);
+  final List<Employee> employees;
+  @override
+  Widget build(BuildContext context) {
+    const labels = [
+      '\u062f\u06cc\u067e\u0644\u0645',
+      '\u06a9\u0627\u0631\u062f\u0627\u0646\u06cc',
+      '\u06a9\u0627\u0631\u0634\u0646\u0627\u0633\u06cc',
+      '\u062a\u06a9\u0645\u06cc\u0644\u06cc',
+      '\u062b\u0628\u062a \u0646\u0634\u062f\u0647',
+    ];
+    final values = List<int>.filled(labels.length, 0);
+    for (final employee in employees) {
+      final degree = employee.educationalDegree.trim();
+      final index = degree.isEmpty
+          ? 4
+          : degree.contains('\u062f\u06cc\u067e\u0644\u0645')
+          ? 0
+          : degree.contains('\u06a9\u0627\u0631\u062f\u0627\u0646\u06cc')
+          ? 1
+          : degree.contains('\u06a9\u0627\u0631\u0634\u0646\u0627\u0633\u06cc')
+          ? 2
+          : 3;
+      values[index]++;
+    }
+    return _ChartCard(
+      title: '\u0633\u0637\u062d \u062a\u062d\u0635\u06cc\u0644\u0627\u062a',
+      child: _PieChart(
+        labels: labels,
+        values: values,
+        colors: const [
+          Color(0xFF2563EB),
+          Color(0xFF16A085),
+          Color(0xFFF39C12),
+          Color(0xFF8E44AD),
+          Color(0xFF98A2B3),
+        ],
+      ),
+    );
+  }
+}
+
+class _HiringTrendChart extends StatelessWidget {
+  const _HiringTrendChart(this.employees);
+  final List<Employee> employees;
+  @override
+  Widget build(BuildContext context) {
+    final year = DateTime.now().year;
+    final values = List<int>.generate(
+      5,
+      (i) => employees.where((e) => e.hireDate.year == year - 4 + i).length,
+    );
+    final labels = List<String>.generate(
+      5,
+      (i) => _fa('${year - 4 + i}'),
+    );
+    return _ChartCard(
+      title: '\u0631\u0648\u0646\u062f \u062c\u0630\u0628 \u067e\u0646\u062c \u0633\u0627\u0644 \u0627\u062e\u06cc\u0631',
+      child: _PieChart(
+        labels: labels,
+        values: values,
+      colors: const [
+          Color(0xFF0F766E),
+          Color(0xFF0284C7),
+          Color(0xFF7C3AED),
+          Color(0xFFDB2777),
+          Color(0xFFEA580C),
+        ],
+        legendOnLeft: true,
+      ),
+    );
+  }
+}
+
+*/
+class _ChartCard extends StatelessWidget {
+  const _ChartCard({required this.title, required this.child});
+  final String title;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF344054))), const SizedBox(height: 20), child]));
+}
+
+class _PieChart extends StatelessWidget {
+  const _PieChart({
+    required this.labels,
+    required this.values,
+    required this.colors,
+    this.detailSuffix,
+    this.legendGap = 24,
+    this.legendOnLeft = false,
+  });
+  final List<String> labels;
+  final List<int> values;
+  final List<Color> colors;
+  final String? detailSuffix;
+  final double legendGap;
+  final bool legendOnLeft;
+  @override
+  Widget build(BuildContext context) {
+    final chart = Expanded(
+      flex: 5,
+      child: SizedBox(
+        height: 170,
+        child: LayoutBuilder(
+          builder: (context, constraints) => GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapUp: (details) {
+              final index = _pieSliceAt(
+                details.localPosition,
+                constraints.biggest,
+                values,
+              );
+              if (index == null) return;
+              final suffix = detailSuffix == null ? '' : ' $detailSuffix';
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '${labels[index]}$suffix: ${_fa('${values[index]}')} \u0646\u0641\u0631',
+                    ),
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+            },
+            child: CustomPaint(
+              painter: _MultiSliceDonutPainter(values: values, colors: colors),
+              size: Size.infinite,
+            ),
+          ),
+        ),
+      ),
+    );
+    final legend = Expanded(
+      flex: 6,
+      child: _ChartLegend(
+        items: List.generate(
+          labels.length,
+          (i) => _LegendItem(labels[i], values[i], colors[i]),
+        ),
+      ),
+    );
+    return Row(
+      textDirection: TextDirection.ltr,
+      children: [
+        chart,
+        SizedBox(width: legendGap),
+        legend,
+      ],
+    );
+  }
+}
+
+int? _pieSliceAt(Offset position, Size size, List<int> values) {
+  final center = Offset(size.width / 2, size.height / 2);
+  final radius = size.shortestSide / 2 - 10;
+  final distance = (position - center).distance;
+  const strokeWidth = 24.0;
+  if (distance < radius - strokeWidth / 2 - 8 ||
+      distance > radius + strokeWidth / 2 + 8) {
+    return null;
+  }
+
+  final total = values.fold<int>(0, (sum, value) => sum + value);
+  if (total == 0) return null;
+  var angle = math.atan2(position.dy - center.dy, position.dx - center.dx);
+  angle = (angle + math.pi / 2) % (2 * math.pi);
+  if (angle < 0) angle += 2 * math.pi;
+  var cumulative = 0.0;
+  for (var i = 0; i < values.length; i++) {
+    cumulative += 2 * math.pi * values[i] / total;
+    if (angle <= cumulative) return values[i] == 0 ? null : i;
+  }
+  return null;
+}
+
+class _ChartLegend extends StatelessWidget {
+  const _ChartLegend({required this.items});
+  final List<_LegendItem> items;
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.end,
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: items
+        .map(
+          (item) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.max,
+              textDirection: TextDirection.rtl,
+              children: [
+                Container(
+                  width: 11,
+                  height: 11,
+                  decoration: BoxDecoration(
+                    color: item.color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(item.label),
+                const SizedBox(width: 10),
+                Text(
+                  _fa('${item.value} نفر'),
+                  style: const TextStyle(
+                    color: Color(0xFF667085),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        )
+        .toList(),
+  );
+}
+
+class _LegendItem { const _LegendItem(this.label, this.value, this.color); final String label; final int value; final Color color; }
+
+class _DonutChartPainter extends CustomPainter {
+  const _DonutChartPainter({required this.active, required this.total});
+  final int active, total;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide / 2 - 14;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final paint = Paint()..style = PaintingStyle.stroke..strokeWidth = 18..strokeCap = StrokeCap.round;
+    paint.color = const Color(0xFFF2994A);
+    canvas.drawCircle(center, radius, paint);
+    if (total > 0 && active > 0) { paint.color = const Color(0xFF217A67); canvas.drawArc(rect, -1.5708, 6.28318 * active / total, false, paint); }
+    final text = TextPainter(text: TextSpan(text: _fa('$total'), style: const TextStyle(color: Color(0xFF1D2939), fontSize: 26, fontWeight: FontWeight.w800)), textDirection: TextDirection.rtl)..layout();
+    text.paint(canvas, center - Offset(text.width / 2, text.height / 2));
+  }
+  @override
+  bool shouldRepaint(covariant _DonutChartPainter old) => old.active != active || old.total != total;
+}
+
+class _MultiSliceDonutPainter extends CustomPainter {
+  const _MultiSliceDonutPainter({required this.values, required this.colors});
+  final List<int> values;
+  final List<Color> colors;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide / 2 - 10;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final total = values.fold<int>(0, (sum, value) => sum + value);
+    final paint = Paint()..style = PaintingStyle.stroke..strokeWidth = 24;
+    if (total == 0) {
+      paint.color = const Color(0xFFE8EDF3);
+      canvas.drawCircle(center, radius, paint);
+    } else {
+      var startAngle = -1.5708;
+      for (var i = 0; i < values.length; i++) {
+        if (values[i] == 0) continue;
+        final sweepAngle = 6.28318 * values[i] / total;
+        paint.color = colors[i];
+        canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+        startAngle += sweepAngle;
+      }
+    }
+    final text = TextPainter(
+      text: TextSpan(
+        text: _fa('$total'),
+        style: const TextStyle(
+          color: Color(0xFF1D2939),
+          fontSize: 24,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      textDirection: TextDirection.rtl,
+    )..layout();
+    text.paint(canvas, center - Offset(text.width / 2, text.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(covariant _MultiSliceDonutPainter old) =>
+      old.values != values || old.colors != colors;
 }
 
 class _InfoCard extends StatelessWidget {

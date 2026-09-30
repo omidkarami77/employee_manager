@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pocketbase/pocketbase.dart';
 
 import '../config/pocketbase_config.dart';
 import '../models/app_user.dart';
+import 'session_storage.dart';
 
 class AuthRepositoryException implements Exception {
   const AuthRepositoryException(this.message);
@@ -14,29 +14,11 @@ class AuthRepositoryException implements Exception {
   String toString() => message;
 }
 
-abstract class SessionStorage {
-  Future<String?> read();
-  Future<void> write(String value);
-  Future<void> clear();
-}
-
-class SecureSessionStorage implements SessionStorage {
-  const SecureSessionStorage(this.key);
-  final String key;
-  static const _storage = FlutterSecureStorage();
-  @override
-  Future<String?> read() => _storage.read(key: key);
-  @override
-  Future<void> write(String value) => _storage.write(key: key, value: value);
-  @override
-  Future<void> clear() => _storage.delete(key: key);
-}
-
 class AuthRepository {
   AuthRepository(this.client, {SessionStorage? storage})
     : storage =
           storage ??
-          SecureSessionStorage(
+          createSessionStorage(
             'employee_manager.auth.${Uri.encodeComponent(client.baseURL)}',
           );
   final PocketBase client;

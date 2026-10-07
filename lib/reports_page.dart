@@ -37,10 +37,16 @@ class _ReportsPageState extends State<_ReportsPage> {
         e.nationalCode,
         e.mobile,
         e.jobTitle,
+        e.wisdomCardNumber,
+        e.sepahBankAccountNumber,
         e.department,
+        e.organizationalMembership,
         e.province,
         e.address,
         e.sacrificeStatus,
+        e.veteranDisabilityPercentage,
+        e.maritalStatus,
+        e.dependentsCount,
         e.collaborationType,
         e.educationalDegree,
         e.lastServiceUnit,
@@ -48,10 +54,13 @@ class _ReportsPageState extends State<_ReportsPage> {
         e.dispatchDate == null ? '' : _jalali(e.dispatchDate!),
         e.accommodationStatus,
         e.hasBattlefrontService ? 'دارد' : 'ندارد',
-        e.battlefrontStartDate == null ? '' : _jalali(e.battlefrontStartDate!),
-        e.battlefrontEndDate == null ? '' : _jalali(e.battlefrontEndDate!),
+        e.hasBattlefrontService && e.battlefrontDurationMonths > 0
+            ? '${e.battlefrontDurationMonths} ماه'
+            : '',
         e.battleOperations,
         _jalali(e.hireDate),
+        e.employmentDate == null ? '' : _jalali(e.employmentDate!),
+        e.retirementDate == null ? '' : _jalali(e.retirementDate!),
         e.endDate == null ? '' : _jalali(e.endDate!),
         _fa(employeeExperience(e, now: now).toString()),
         e.isActive ? 'فعال' : 'غیرفعال',
@@ -130,9 +139,9 @@ class _ReportsPageState extends State<_ReportsPage> {
                     DropdownMenuItem(value: 15, child: Text('۱۱ تا ۱۵ سال')),
                     DropdownMenuItem(value: 20, child: Text('۱۶ تا ۲۰ سال')),
                     DropdownMenuItem(value: 30, child: Text('۲۱ تا ۳۰ سال')),
-                  ]
-                  .toList(),
-                  onChanged: (value) => setState(() => _experienceRange = value!),
+                  ].toList(),
+                  onChanged: (value) =>
+                      setState(() => _experienceRange = value!),
                 ),
               ),
               SizedBox(
@@ -194,6 +203,10 @@ class _ReportsPageState extends State<_ReportsPage> {
                       child: Text('همه انواع همکاری'),
                     ),
                     DropdownMenuItem(
+                      value: 'معارف جنگ و روساء گروه های استانی',
+                      child: Text('معارف جنگ و روساء گروه های استانی'),
+                    ),
+                    DropdownMenuItem(
                       value: 'نظامی شاغل',
                       child: Text('نظامی شاغل'),
                     ),
@@ -210,6 +223,10 @@ class _ReportsPageState extends State<_ReportsPage> {
                       child: Text('پیشکوست شاغل ( گروه های استانی )'),
                     ),
                     DropdownMenuItem(value: 'اساتید', child: Text('اساتید')),
+                    DropdownMenuItem(
+                      value: 'اساتید پیشکسوت',
+                      child: Text('اساتید پیشکسوت'),
+                    ),
                   ],
                   onChanged: (value) =>
                       setState(() => _collaborationType = value),
@@ -223,7 +240,7 @@ class _ReportsPageState extends State<_ReportsPage> {
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
                     labelText: 'جستجو',
-                    hintText: 'نام، نام خانوادگی، کد پرسنلی یا کد ملی',
+                    hintText: 'نام، نام خانوادگی، کد کارگزینی یا کد ملی',
                     prefixIcon: Icon(Icons.search),
                     border: OutlineInputBorder(),
                   ),
@@ -292,14 +309,20 @@ class _ReportsPageState extends State<_ReportsPage> {
                       columns: const [
                         'ردیف',
                         'نام و نام خانوادگی',
-                        'کد پرسنلی',
+                        'کد کارگزینی',
                         'کد ملی',
-                        'شماره موبایل',
+                        'شماره تلفن همراه',
                         'واحد سازمانی',
+                        'عضویت سازمانی',
                         'استان',
                         'آدرس محل سکونت',
-                        'سمت',
+                        'درجه',
+                        'شماره کارت حکمت',
+                        'شماره حساب بانک سپه',
                         'وضعیت ایثارگری',
+                        'درصد جانبازی',
+                        'وضعیت تأهل',
+                        'تعداد عائله تحت تکفل',
                         'نوع همکاری',
                         'مدرک تحصیلی',
                         'آخرین یگان خدمتی',
@@ -307,10 +330,11 @@ class _ReportsPageState extends State<_ReportsPage> {
                         'تاریخ اعزام',
                         'وضعیت اسکان',
                         'سابقه حضور در جبهه',
-                        'تاریخ حضور در جبهه',
-                        'تاریخ پایان جبهه',
+                        'مدت حضور در جبهه',
                         'عملیات‌های شرکت‌کرده',
                         'تاریخ شروع همکاری',
+                        'تاریخ استخدام',
+                        'تاریخ بازنشستگی',
                         'تاریخ پایان همکاری',
                         'سابقه',
                         'وضعیت',
@@ -325,21 +349,133 @@ class _ReportsPageState extends State<_ReportsPage> {
                             DataCell(Text(e.nationalCode)),
                             DataCell(Text(e.mobile)),
                             DataCell(Text(e.department)),
-                            DataCell(Text(e.province.isEmpty ? '—' : e.province)),
+                            DataCell(
+                              Text(
+                                e.organizationalMembership.isEmpty
+                                    ? '—'
+                                    : e.organizationalMembership,
+                              ),
+                            ),
+                            DataCell(
+                              Text(e.province.isEmpty ? '—' : e.province),
+                            ),
                             DataCell(Text(e.address.isEmpty ? '—' : e.address)),
                             DataCell(Text(e.jobTitle)),
-                            DataCell(Text(e.sacrificeStatus.isEmpty ? '—' : e.sacrificeStatus)),
-                            DataCell(Text(e.collaborationType.isEmpty ? '—' : e.collaborationType)),
-                            DataCell(Text(e.educationalDegree.isEmpty ? '—' : e.educationalDegree)),
-                            DataCell(Text(e.lastServiceUnit.isEmpty ? '—' : e.lastServiceUnit)),
-                            DataCell(Text(e.specialization.isEmpty ? '—' : e.specialization)),
-                            DataCell(Text(e.dispatchDate == null ? '—' : _jalali(e.dispatchDate!))),
-                            DataCell(Text(e.accommodationStatus.isEmpty ? '—' : e.accommodationStatus)),
-                            DataCell(Text(e.hasBattlefrontService ? 'دارد' : 'ندارد')),
-                            DataCell(Text(e.battlefrontStartDate == null ? '—' : _jalali(e.battlefrontStartDate!))),
-                            DataCell(Text(e.battlefrontEndDate == null ? '—' : _jalali(e.battlefrontEndDate!))),
-                            DataCell(Text(e.battleOperations.isEmpty ? '—' : e.battleOperations)),
+                            DataCell(
+                              Text(
+                                e.wisdomCardNumber.isEmpty
+                                    ? '—'
+                                    : e.wisdomCardNumber,
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.sepahBankAccountNumber.isEmpty
+                                    ? '—'
+                                    : e.sepahBankAccountNumber,
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.sacrificeStatus.isEmpty
+                                    ? '—'
+                                    : e.sacrificeStatus,
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.veteranDisabilityPercentage.isEmpty
+                                    ? '—'
+                                    : e.veteranDisabilityPercentage,
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.maritalStatus.isEmpty ? '—' : e.maritalStatus,
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.dependentsCount.isEmpty
+                                    ? '—'
+                                    : e.dependentsCount,
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.collaborationType.isEmpty
+                                    ? '—'
+                                    : e.collaborationType,
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.educationalDegree.isEmpty
+                                    ? '—'
+                                    : e.educationalDegree,
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.lastServiceUnit.isEmpty
+                                    ? '—'
+                                    : e.lastServiceUnit,
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.specialization.isEmpty
+                                    ? '—'
+                                    : e.specialization,
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.dispatchDate == null
+                                    ? '—'
+                                    : _jalali(e.dispatchDate!),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.accommodationStatus.isEmpty
+                                    ? '—'
+                                    : e.accommodationStatus,
+                              ),
+                            ),
+                            DataCell(
+                              Text(e.hasBattlefrontService ? 'دارد' : 'ندارد'),
+                            ),
+                            DataCell(
+                              Text(
+                                e.hasBattlefrontService &&
+                                        e.battlefrontDurationMonths > 0
+                                    ? '${e.battlefrontDurationMonths} ماه'
+                                    : '—',
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.battleOperations.isEmpty
+                                    ? '—'
+                                    : e.battleOperations,
+                              ),
+                            ),
                             DataCell(Text(_jalali(e.hireDate))),
+                            DataCell(
+                              Text(
+                                e.employmentDate == null
+                                    ? '—'
+                                    : _jalali(e.employmentDate!),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                e.retirementDate == null
+                                    ? '—'
+                                    : _jalali(e.retirementDate!),
+                              ),
+                            ),
                             DataCell(
                               Text(
                                 e.endDate == null ? '—' : _jalali(e.endDate!),

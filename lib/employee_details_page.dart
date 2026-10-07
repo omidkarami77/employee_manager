@@ -45,9 +45,7 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
   }
 
   Future<void> _pickPhoto() async {
-    final result = await FilePicker.pickFile(
-      type: FileType.image,
-    );
+    final result = await FilePicker.pickFile(type: FileType.image);
     if (result == null) return;
     await _runUpload(
       () async => widget.controller.uploadPhoto(
@@ -65,10 +63,7 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
       allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
     );
     if (result.isNotEmpty && mounted) {
-      setState(() => _pendingDocuments = [
-        ..._pendingDocuments,
-        ...result,
-      ]);
+      setState(() => _pendingDocuments = [..._pendingDocuments, ...result]);
     }
   }
 
@@ -107,7 +102,9 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
       _message(error.message);
       return false;
     } catch (_) {
-      _message('بارگذاری فایل انجام نشد. اتصال و تنظیمات PocketBase را بررسی کنید.');
+      _message(
+        'بارگذاری فایل انجام نشد. اتصال و تنظیمات PocketBase را بررسی کنید.',
+      );
       return false;
     } finally {
       if (mounted) setState(() => _uploading = false);
@@ -124,11 +121,9 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
   Future<void> _saveDocument(String filename) async {
     setState(() => _uploading = true);
     try {
-      final response = await http.get(widget.repository.fileUrl(
-        _employee,
-        filename,
-        download: true,
-      ));
+      final response = await http.get(
+        widget.repository.fileUrl(_employee, filename, download: true),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception('download failed');
       }
@@ -152,18 +147,28 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
         title: const Text('حذف مدرک'),
         content: Text('آیا از حذف «$filename» مطمئن هستید؟'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('انصراف')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('حذف')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حذف'),
+          ),
         ],
       ),
     );
     if (remove == true) {
-      await _runUpload(() => widget.controller.deleteDocument(_employee, filename));
+      await _runUpload(
+        () => widget.controller.deleteDocument(_employee, filename),
+      );
     }
   }
 
   void _message(String message) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (mounted)
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -202,7 +207,13 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
               ),
             ),
           ),
-          if (_uploading) const Positioned(top: 0, left: 0, right: 0, child: LinearProgressIndicator()),
+          if (_uploading)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: LinearProgressIndicator(),
+            ),
         ],
       ),
     ),
@@ -214,15 +225,42 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
       child: Row(
         children: [
           _employee.photo.isEmpty
-              ? const CircleAvatar(radius: 48, child: Icon(Icons.person_rounded, size: 52))
-              : CircleAvatar(radius: 48, backgroundImage: NetworkImage(widget.repository.fileUrl(_employee, _employee.photo).toString())),
+              ? const CircleAvatar(
+                  radius: 48,
+                  child: Icon(Icons.person_rounded, size: 52),
+                )
+              : CircleAvatar(
+                  radius: 48,
+                  backgroundImage: NetworkImage(
+                    widget.repository
+                        .fileUrl(_employee, _employee.photo)
+                        .toString(),
+                  ),
+                ),
           const SizedBox(width: 20),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_employee.fullName, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Text(_employee.jobTitle, style: const TextStyle(color: Color(0xFF667085))),
-          ])),
-          if (_isAdmin) OutlinedButton.icon(onPressed: _uploading ? null : _pickPhoto, icon: const Icon(Icons.photo_camera_outlined), label: const Text('بارگذاری عکس')),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _employee.fullName,
+                  style: Theme.of(context).textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _employee.jobTitle,
+                  style: const TextStyle(color: Color(0xFF667085)),
+                ),
+              ],
+            ),
+          ),
+          if (_isAdmin)
+            OutlinedButton.icon(
+              onPressed: _uploading ? null : _pickPhoto,
+              icon: const Icon(Icons.photo_camera_outlined),
+              label: const Text('بارگذاری عکس'),
+            ),
         ],
       ),
     ),
@@ -230,76 +268,238 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
 
   Widget _detailsCard(BuildContext context) {
     final values = <(String, String)>[
-      ('کد پرسنلی', _employee.personnelCode), ('کد ملی', _employee.nationalCode),
-      ('شماره موبایل', _employee.mobile), ('سمت', _employee.jobTitle),
-      ('وضعیت ایثارگری', _employee.sacrificeStatus.isEmpty ? '—' : _employee.sacrificeStatus),
-      ('نوع همکاری', _employee.collaborationType.isEmpty ? '—' : _employee.collaborationType),
-      ('مدرک تحصیلی', _employee.educationalDegree.isEmpty ? '—' : _employee.educationalDegree),
-      ('آخرین یگان خدمتی', _employee.lastServiceUnit.isEmpty ? '—' : _employee.lastServiceUnit),
-      ('تخصص', _employee.specialization.isEmpty ? '—' : _employee.specialization),
+      ('کد کارگزینی', _employee.personnelCode),
+      ('کد ملی', _employee.nationalCode),
+      ('شماره تلفن همراه', _employee.mobile),
+      ('درجه', _employee.jobTitle),
+      (
+        'شماره کارت حکمت',
+        _employee.wisdomCardNumber.isEmpty ? '—' : _employee.wisdomCardNumber,
+      ),
+      (
+        'شماره حساب بانک سپه',
+        _employee.sepahBankAccountNumber.isEmpty
+            ? '—'
+            : _employee.sepahBankAccountNumber,
+      ),
+      (
+        'وضعیت ایثارگری',
+        _employee.sacrificeStatus.isEmpty ? '—' : _employee.sacrificeStatus,
+      ),
+      if (_employee.sacrificeStatus == 'جانباز' ||
+          _employee.sacrificeStatus == 'جانباز آزاده')
+        (
+          'درصد جانبازی',
+          _employee.veteranDisabilityPercentage.isEmpty
+              ? '—'
+              : _employee.veteranDisabilityPercentage,
+        ),
+      (
+        'وضعیت تأهل',
+        _employee.maritalStatus.isEmpty ? '—' : _employee.maritalStatus,
+      ),
+      if (_employee.maritalStatus == 'متأهل')
+        (
+          'تعداد عائله تحت تکفل',
+          _employee.dependentsCount.isEmpty ? '—' : _employee.dependentsCount,
+        ),
+      (
+        'نوع همکاری',
+        _employee.collaborationType.isEmpty ? '—' : _employee.collaborationType,
+      ),
+      (
+        'مدرک تحصیلی',
+        _employee.educationalDegree.isEmpty ? '—' : _employee.educationalDegree,
+      ),
+      (
+        'آخرین یگان خدمتی',
+        _employee.lastServiceUnit.isEmpty ? '—' : _employee.lastServiceUnit,
+      ),
+      (
+        'تخصص',
+        _employee.specialization.isEmpty ? '—' : _employee.specialization,
+      ),
       if (_employee.collaborationType == 'سرباز وظیفه')
-        ('تاریخ اعزام', _employee.dispatchDate == null ? '—' : _formatJalaliDate(_employee.dispatchDate!)),
+        (
+          'تاریخ اعزام',
+          _employee.dispatchDate == null
+              ? '—'
+              : _formatJalaliDate(_employee.dispatchDate!),
+        ),
       if (_employee.collaborationType == 'سرباز وظیفه')
-        ('وضعیت اسکان', _employee.accommodationStatus.isEmpty ? '—' : _employee.accommodationStatus),
-      ('واحد سازمانی', _employee.department), ('استان محل خدمت', _employee.province.isEmpty ? '—' : _employee.province),
+        (
+          'وضعیت اسکان',
+          _employee.accommodationStatus.isEmpty
+              ? '—'
+              : _employee.accommodationStatus,
+        ),
+      ('واحد سازمانی', _employee.department),
+      ('عضویت سازمانی', _employee.organizationalMembership),
+      ('استان محل خدمت', _employee.province.isEmpty ? '—' : _employee.province),
       ('تاریخ شروع همکاری', _formatJalaliDate(_employee.hireDate)),
+      (
+        'تاریخ استخدام',
+        _employee.employmentDate == null
+            ? '—'
+            : _formatJalaliDate(_employee.employmentDate!),
+      ),
+      (
+        'تاریخ بازنشستگی',
+        _employee.retirementDate == null
+            ? '—'
+            : _formatJalaliDate(_employee.retirementDate!),
+      ),
       ('آدرس محل سکونت', _employee.address.isEmpty ? '—' : _employee.address),
-      ('سابقه حضور در جبهه', _employee.hasBattlefrontService ? 'داشته است' : 'نداشته است'),
+      (
+        'سابقه حضور در جبهه',
+        _employee.hasBattlefrontService ? 'داشته است' : 'نداشته است',
+      ),
       if (_employee.hasBattlefrontService) ...[
-        ('تاریخ حضور در جبهه', _employee.battlefrontStartDate == null ? '—' : _formatJalaliDate(_employee.battlefrontStartDate!)),
-        ('تاریخ پایان جبهه', _employee.battlefrontEndDate == null ? '—' : _formatJalaliDate(_employee.battlefrontEndDate!)),
-        ('عملیات‌های شرکت‌کرده', _employee.battleOperations.isEmpty ? '—' : _employee.battleOperations),
+        (
+          'مدت حضور در جبهه',
+          _employee.battlefrontDurationMonths > 0
+              ? '${_employee.battlefrontDurationMonths} ماه'
+              : '—',
+        ),
+        (
+          'عملیات‌های شرکت‌کرده',
+          _employee.battleOperations.isEmpty ? '—' : _employee.battleOperations,
+        ),
       ],
-      ('تاریخ پایان همکاری', _employee.endDate == null ? '—' : _formatJalaliDate(_employee.endDate!)),
-      ('سابقه', employeeExperience(_employee).toString()), ('وضعیت', _employee.isActive ? 'فعال' : 'غیرفعال'),
+      (
+        'تاریخ پایان همکاری',
+        _employee.endDate == null ? '—' : _formatJalaliDate(_employee.endDate!),
+      ),
+      ('سابقه', employeeExperience(_employee).toString()),
+      ('وضعیت', _employee.isActive ? 'فعال' : 'غیرفعال'),
     ];
-    return Card(child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Wrap(spacing: 32, runSpacing: 20, children: values.map((item) => SizedBox(width: 285, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.$1, style: const TextStyle(color: Color(0xFF667085))), const SizedBox(height: 5), Text(item.$2, style: const TextStyle(fontWeight: FontWeight.w700))]))).toList()),
-    ));
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Wrap(
+          spacing: 32,
+          runSpacing: 20,
+          children: values
+              .map(
+                (item) => SizedBox(
+                  width: 285,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.$1,
+                        style: const TextStyle(color: Color(0xFF667085)),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        item.$2,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
   }
 
-  Widget _documentsCard(BuildContext context) => Card(child: Padding(
-    padding: const EdgeInsets.all(24),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [Text('مدارک', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)), const Spacer(), if (_isAdmin) OutlinedButton.icon(onPressed: _uploading ? null : _pickDocuments, icon: const Icon(Icons.attach_file_rounded), label: const Text('انتخاب مدارک'))]),
-      const SizedBox(height: 12),
-      if (_isAdmin && _pendingDocuments.isNotEmpty) ...[
-        const Text('فایل‌های انتخاب‌شده (هنوز ذخیره نشده‌اند):', style: TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        ..._pendingDocuments.asMap().entries.map((entry) => ListTile(
-          dense: true,
-          leading: const Icon(Icons.pending_outlined),
-          title: Text(entry.value.name, textDirection: TextDirection.ltr),
-          trailing: IconButton(
-            tooltip: 'حذف از انتخاب',
-            onPressed: _uploading ? null : () => setState(() {
-              _pendingDocuments = List.of(_pendingDocuments)..removeAt(entry.key);
-            }),
-            icon: const Icon(Icons.close_rounded),
+  Widget _documentsCard(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'مدارک',
+                style: Theme.of(context).textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const Spacer(),
+              if (_isAdmin)
+                OutlinedButton.icon(
+                  onPressed: _uploading ? null : _pickDocuments,
+                  icon: const Icon(Icons.attach_file_rounded),
+                  label: const Text('انتخاب مدارک'),
+                ),
+            ],
           ),
-        )),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton.icon(
-            onPressed: _uploading ? null : _savePendingDocuments,
-            icon: const Icon(Icons.save_outlined),
-            label: Text('ذخیرهٔ ${_pendingDocuments.length} مدرک'),
+          const SizedBox(height: 12),
+          if (_isAdmin && _pendingDocuments.isNotEmpty) ...[
+            const Text(
+              'فایل‌های انتخاب‌شده (هنوز ذخیره نشده‌اند):',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            ..._pendingDocuments.asMap().entries.map(
+              (entry) => ListTile(
+                dense: true,
+                leading: const Icon(Icons.pending_outlined),
+                title: Text(entry.value.name, textDirection: TextDirection.ltr),
+                trailing: IconButton(
+                  tooltip: 'حذف از انتخاب',
+                  onPressed: _uploading
+                      ? null
+                      : () => setState(() {
+                          _pendingDocuments = List.of(_pendingDocuments)
+                            ..removeAt(entry.key);
+                        }),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                onPressed: _uploading ? null : _savePendingDocuments,
+                icon: const Icon(Icons.save_outlined),
+                label: Text('ذخیرهٔ ${_pendingDocuments.length} مدرک'),
+              ),
+            ),
+            const Divider(height: 32),
+          ],
+          if (_employee.documents.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text('مدرکی ثبت نشده است.'),
+            ),
+          ..._employee.documents.map(
+            (file) => ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: Text(file, textDirection: TextDirection.ltr),
+              trailing: Wrap(
+                spacing: 2,
+                children: [
+                  IconButton(
+                    tooltip: 'باز کردن',
+                    onPressed: _uploading ? null : () => _openDocument(file),
+                    icon: const Icon(Icons.open_in_new_rounded),
+                  ),
+                  IconButton(
+                    tooltip: 'دانلود / ذخیره',
+                    onPressed: _uploading ? null : () => _saveDocument(file),
+                    icon: const Icon(Icons.download_rounded),
+                  ),
+                  if (_isAdmin)
+                    IconButton(
+                      tooltip: 'حذف مدرک',
+                      onPressed: _uploading
+                          ? null
+                          : () => _deleteDocument(file),
+                      color: Theme.of(context).colorScheme.error,
+                      icon: const Icon(Icons.delete_outline_rounded),
+                    ),
+                ],
+              ),
+            ),
           ),
-        ),
-        const Divider(height: 32),
-      ],
-      if (_employee.documents.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Text('مدرکی ثبت نشده است.')),
-      ..._employee.documents.map((file) => ListTile(
-        leading: const Icon(Icons.description_outlined), title: Text(file, textDirection: TextDirection.ltr),
-        trailing: Wrap(spacing: 2, children: [
-          IconButton(tooltip: 'باز کردن', onPressed: _uploading ? null : () => _openDocument(file), icon: const Icon(Icons.open_in_new_rounded)),
-          IconButton(tooltip: 'دانلود / ذخیره', onPressed: _uploading ? null : () => _saveDocument(file), icon: const Icon(Icons.download_rounded)),
-          if (_isAdmin) IconButton(tooltip: 'حذف مدرک', onPressed: _uploading ? null : () => _deleteDocument(file), color: Theme.of(context).colorScheme.error, icon: const Icon(Icons.delete_outline_rounded)),
-        ]),
-      )),
-    ]),
-  ));
+        ],
+      ),
+    ),
+  );
 }
 
 String _formatJalaliDate(DateTime value) {
@@ -315,7 +515,11 @@ String _formatJalaliDate(DateTime value) {
   year -= 1600;
   month--;
   day--;
-  var days = 365 * year + ((year + 3) ~/ 4) - ((year + 99) ~/ 100) + ((year + 399) ~/ 400);
+  var days =
+      365 * year +
+      ((year + 3) ~/ 4) -
+      ((year + 99) ~/ 100) +
+      ((year + 399) ~/ 400);
   for (var index = 0; index < month; index++) {
     days += gregorianMonthDays[index];
   }

@@ -192,7 +192,7 @@ void main() {
             'field errors',
             {
               'national_code_': 'کد ملی تکراری است.',
-              'personnel_code': 'کد پرسنلی تکراری است.',
+              'personnel_code': 'کد کارگزینی تکراری است.',
             },
           ),
         ),

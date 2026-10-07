@@ -194,9 +194,9 @@ void main() {
         await _enterField(tester, 'نام', 'علی');
         await _enterField(tester, 'نام خانوادگی', 'احمدی');
         await _enterField(tester, 'کد ملی', nationalCode);
-        await _enterField(tester, 'شماره موبایل', '09121234567');
-        await _enterField(tester, 'کد پرسنلی', '1001');
-        await _enterField(tester, 'سمت', 'کارشناس');
+        await _enterField(tester, 'شماره تلفن همراه', '09121234567');
+        await _enterField(tester, 'کد کارگزینی', '1001');
+        await _enterField(tester, 'درجه', 'کارشناس');
         await _enterField(tester, 'آخرین یگان خدمتی', 'لشکر ۲۷ محمد رسول‌الله');
         await _enterField(tester, 'تخصص', 'آموزش نظامی');
         final departmentField = tester.widget<TextFormField>(
@@ -209,6 +209,12 @@ void main() {
         );
         await tester.pumpAndSettle();
         await tester.tap(find.text('ایثارگر').last);
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('employee-marital-status')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('مجرد').last);
         await tester.pumpAndSettle();
         await tester.tap(
           find.byKey(const ValueKey('employee-collaboration-type')),

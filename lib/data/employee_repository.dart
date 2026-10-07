@@ -39,7 +39,11 @@ class EmployeeRecordMapper {
       department: Employee.organizationalUnit,
       // Records created before this field was added do not have a province.
       province: record.data['province']?.toString() ?? '',
+      organizationalMembership:
+          record.data['organizational_membership']?.toString() ?? '',
       hireDate: _readDate(record.getStringValue('hire_date')),
+      employmentDate: _optionalDate(record.data['employment_date']),
+      retirementDate: _optionalDate(record.data['retirement_date']),
       endDate: endDate.isEmpty ? null : _readDate(endDate),
       isActive: record.getBoolValue('is_active'),
       photo: record.getStringValue('photo'),
@@ -47,16 +51,31 @@ class EmployeeRecordMapper {
       // Existing records created before this field was added have null here.
       address: record.data['address']?.toString() ?? '',
       hasBattlefrontService: record.data['has_battlefront_service'] == true,
-      battlefrontStartDate: _optionalDate(record.data['battlefront_start_date']),
+      battlefrontDurationMonths:
+          int.tryParse(
+            record.data['battlefront_duration_months']?.toString() ?? '',
+          ) ??
+          0,
+      battlefrontStartDate: _optionalDate(
+        record.data['battlefront_start_date'],
+      ),
       battlefrontEndDate: _optionalDate(record.data['battlefront_end_date']),
       battleOperations: record.data['battle_operations']?.toString() ?? '',
+      wisdomCardNumber: record.data['wisdom_card_number']?.toString() ?? '',
+      sepahBankAccountNumber:
+          record.data['sepah_bank_account_number']?.toString() ?? '',
       sacrificeStatus: record.data['sacrifice_status']?.toString() ?? '',
+      veteranDisabilityPercentage:
+          record.data['veteran_disability_percentage']?.toString() ?? '',
+      maritalStatus: record.data['marital_status']?.toString() ?? '',
+      dependentsCount: record.data['dependents_count']?.toString() ?? '',
       collaborationType: record.data['collaboration_type']?.toString() ?? '',
       educationalDegree: record.data['educational_degree']?.toString() ?? '',
       lastServiceUnit: record.data['last_service_unit']?.toString() ?? '',
       specialization: record.data['specialization']?.toString() ?? '',
       dispatchDate: _optionalDate(record.data['dispatch_date']),
-      accommodationStatus: record.data['accommodation_status']?.toString() ?? '',
+      accommodationStatus:
+          record.data['accommodation_status']?.toString() ?? '',
     );
   }
 
@@ -73,18 +92,27 @@ class EmployeeRecordMapper {
       'job_title': employee.jobTitle,
       'department': Employee.organizationalUnit,
       'province': employee.province,
+      'organizational_membership': employee.organizationalMembership,
       'address': employee.address,
       'hire_date': _writeDate(employee.hireDate),
+      'employment_date': employee.employmentDate == null
+          ? ''
+          : _writeDate(employee.employmentDate!),
+      'retirement_date': employee.retirementDate == null
+          ? ''
+          : _writeDate(employee.retirementDate!),
       'is_active': employee.isActive,
       'has_battlefront_service': employee.hasBattlefrontService,
-      'battlefront_start_date': employee.battlefrontStartDate == null
-          ? ''
-          : _writeDate(employee.battlefrontStartDate!),
-      'battlefront_end_date': employee.battlefrontEndDate == null
-          ? ''
-          : _writeDate(employee.battlefrontEndDate!),
+      'battlefront_duration_months': employee.hasBattlefrontService
+          ? employee.battlefrontDurationMonths
+          : 0,
       'battle_operations': employee.battleOperations,
+      'wisdom_card_number': employee.wisdomCardNumber,
+      'sepah_bank_account_number': employee.sepahBankAccountNumber,
       'sacrifice_status': employee.sacrificeStatus,
+      'veteran_disability_percentage': employee.veteranDisabilityPercentage,
+      'marital_status': employee.maritalStatus,
+      'dependents_count': employee.dependentsCount,
       'collaboration_type': employee.collaborationType,
       'educational_degree': employee.educationalDegree,
       'last_service_unit': employee.lastServiceUnit,
@@ -127,13 +155,19 @@ class EmployeeRecordMapper {
   /// Supports both PocketBase's native JSON array and older/string responses.
   static List<String> _fileNames(dynamic value) {
     if (value is List) {
-      return value.map((item) => item.toString()).where((name) => name.isNotEmpty).toList();
+      return value
+          .map((item) => item.toString())
+          .where((name) => name.isNotEmpty)
+          .toList();
     }
     if (value is String && value.isNotEmpty) {
       try {
         final decoded = jsonDecode(value);
         if (decoded is List) {
-          return decoded.map((item) => item.toString()).where((name) => name.isNotEmpty).toList();
+          return decoded
+              .map((item) => item.toString())
+              .where((name) => name.isNotEmpty)
+              .toList();
         }
       } on FormatException {
         // A single-file response is still useful to show in the profile.
@@ -239,32 +273,31 @@ class EmployeeRepository {
   Future<Employee> uploadDocuments(
     Employee employee,
     List<(String filename, Uint8List bytes)> documents,
-  ) =>
-      _request(() async {
-        _requireAdmin();
-        if (documents.isEmpty) return employee;
-        // Use the field name directly for compatibility with the PocketBase
-        // version running on the local server.
-        final files = documents
-            .map(
-              (document) => http.MultipartFile.fromBytes(
-                'documents',
-                document.$2,
-                filename: document.$1,
-              ),
-            )
-            .toList();
-        final record = await _collection.update(employee.id, files: files);
-        final saved = EmployeeRecordMapper.fromRecord(
-          await _collection.getOne(record.id),
-        );
-        if (saved.documents.isEmpty) {
-          throw const EmployeeRepositoryException(
-            'سرور فایل‌های انتخاب‌شده را ذخیره نکرد. تنظیمات فیلد مدارک را بررسی کنید.',
-          );
-        }
-        return saved;
-      });
+  ) => _request(() async {
+    _requireAdmin();
+    if (documents.isEmpty) return employee;
+    // Use the field name directly for compatibility with the PocketBase
+    // version running on the local server.
+    final files = documents
+        .map(
+          (document) => http.MultipartFile.fromBytes(
+            'documents',
+            document.$2,
+            filename: document.$1,
+          ),
+        )
+        .toList();
+    final record = await _collection.update(employee.id, files: files);
+    final saved = EmployeeRecordMapper.fromRecord(
+      await _collection.getOne(record.id),
+    );
+    if (saved.documents.isEmpty) {
+      throw const EmployeeRepositoryException(
+        'سرور فایل‌های انتخاب‌شده را ذخیره نکرد. تنظیمات فیلد مدارک را بررسی کنید.',
+      );
+    }
+    return saved;
+  });
 
   Future<Employee> deleteDocument(Employee employee, String filename) =>
       _request(() async {
@@ -273,7 +306,9 @@ class EmployeeRepository {
           employee.id,
           body: {'documents-': filename},
         );
-        return EmployeeRecordMapper.fromRecord(await _collection.getOne(record.id));
+        return EmployeeRecordMapper.fromRecord(
+          await _collection.getOne(record.id),
+        );
       });
 
   Future<T> _request<T>(Future<T> Function() operation) async {
@@ -324,15 +359,19 @@ class EmployeeRepository {
       'first_name': 'نام',
       'last_name': 'نام خانوادگی',
       'national_code_': 'کد ملی',
-      'mobile': 'شماره موبایل',
-      'personnel_code': 'کد پرسنلی',
+      'mobile': 'شماره تلفن همراه',
+      'personnel_code': 'کد کارگزینی',
       'job_title': 'عنوان شغلی',
       'department': 'واحد سازمانی',
+      'organizational_membership': 'عضویت سازمانی',
       'address': 'آدرس',
       'hire_date': 'تاریخ شروع همکاری',
       'end_date': 'تاریخ پایان همکاری',
       'is_active': 'وضعیت همکاری',
       'sacrifice_status': 'وضعیت ایثارگری',
+      'veteran_disability_percentage': 'درصد جانبازی',
+      'marital_status': 'وضعیت تأهل',
+      'dependents_count': 'تعداد عائله تحت تکفل',
     };
     final fieldErrors = <String, String>{};
     final data = error.response['data'];

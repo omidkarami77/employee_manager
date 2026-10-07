@@ -14,6 +14,7 @@ import 'employee_details_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'dart:math' as math;
 
 part 'reports_page.dart';
@@ -29,7 +30,8 @@ class AppText {
   static const reports = '\u06af\u0632\u0627\u0631\u0634\u200c\u0647\u0627';
   static const settings = '\u062a\u0646\u0638\u06cc\u0645\u0627\u062a';
   // Kept for existing widgets and tests that refer to the total label.
-  static const allEmployees = '\u06a9\u0644 \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646';
+  static const allEmployees =
+      '\u06a9\u0644 \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646';
   static const upToTenYears = 'تا ۱۰ سال سابقه';
   static const elevenToFifteenYears = '۱۱ تا ۱۵ سال سابقه';
   static const sixteenToTwentyYears = '۱۶ تا ۲۰ سال سابقه';
@@ -583,6 +585,7 @@ class _EmployeesPageState extends State<_EmployeesPage> {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final employees = _shown;
@@ -625,7 +628,7 @@ class _EmployeesPageState extends State<_EmployeesPage> {
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search_rounded),
-                    hintText: 'جستجو بر اساس نام، نام خانوادگی یا کد پرسنلی',
+                    hintText: 'جستجو بر اساس نام، نام خانوادگی یا کد کارگزینی',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -659,8 +662,8 @@ class _EmployeesPageState extends State<_EmployeesPage> {
                   columns: const [
                     DataColumn(label: Text('ردیف')),
                     DataColumn(label: Text('نام و نام خانوادگی')),
-                    DataColumn(label: Text('کد پرسنلی')),
-                    DataColumn(label: Text('شماره موبایل')),
+                    DataColumn(label: Text('کد کارگزینی')),
+                    DataColumn(label: Text('شماره تلفن همراه')),
                     DataColumn(label: Text('تاریخ شروع همکاری')),
                     DataColumn(label: Text('سابقه')),
                     DataColumn(label: Text('وضعیت')),
@@ -777,19 +780,26 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       _mobile = TextEditingController(),
       _code = TextEditingController(),
       _title = TextEditingController(),
+      _organizationalMembership = TextEditingController(),
       _lastServiceUnit = TextEditingController(),
       _specialization = TextEditingController(),
       _address = TextEditingController(),
-      _battleOperations = TextEditingController();
+      _battleOperations = TextEditingController(),
+      _battlefrontDurationMonths = TextEditingController(),
+      _wisdomCardNumber = TextEditingController(),
+      _sepahBankAccountNumber = TextEditingController(),
+      _veteranDisabilityPercentage = TextEditingController(),
+      _dependentsCount = TextEditingController();
   String? _province;
   String? _sacrificeStatus;
   String? _collaborationType;
   String? _accommodationStatus;
   String? _educationalDegree;
+  String? _maritalStatus;
   DateTime? _hireDate;
+  DateTime? _employmentDate;
+  DateTime? _retirementDate;
   DateTime? _endDate;
-  DateTime? _battlefrontStartDate;
-  DateTime? _battlefrontEndDate;
   DateTime? _dispatchDate;
   bool _active = true;
   bool _hasBattlefrontService = false;
@@ -806,24 +816,35 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
     _mobile.text = e.mobile;
     _code.text = e.personnelCode;
     _title.text = e.jobTitle;
+    _organizationalMembership.text = e.organizationalMembership;
     _lastServiceUnit.text = e.lastServiceUnit;
     _specialization.text = e.specialization;
     _province = e.province.isEmpty ? null : e.province;
-    _sacrificeStatus =
-        e.sacrificeStatus.isEmpty ? null : e.sacrificeStatus;
-    _collaborationType =
-        e.collaborationType.isEmpty ? null : e.collaborationType;
-    _accommodationStatus =
-        e.accommodationStatus.isEmpty ? null : e.accommodationStatus;
-    _educationalDegree =
-        e.educationalDegree.isEmpty ? null : e.educationalDegree;
+    _sacrificeStatus = e.sacrificeStatus.isEmpty ? null : e.sacrificeStatus;
+    _maritalStatus = e.maritalStatus.isEmpty ? null : e.maritalStatus;
+    _collaborationType = e.collaborationType.isEmpty
+        ? null
+        : e.collaborationType;
+    _accommodationStatus = e.accommodationStatus.isEmpty
+        ? null
+        : e.accommodationStatus;
+    _educationalDegree = e.educationalDegree.isEmpty
+        ? null
+        : e.educationalDegree;
     _address.text = e.address;
     _hasBattlefrontService = e.hasBattlefrontService;
-    _battlefrontStartDate = e.battlefrontStartDate;
-    _battlefrontEndDate = e.battlefrontEndDate;
+    _battlefrontDurationMonths.text = e.battlefrontDurationMonths == 0
+        ? ''
+        : e.battlefrontDurationMonths.toString();
     _dispatchDate = e.dispatchDate;
     _battleOperations.text = e.battleOperations;
+    _wisdomCardNumber.text = e.wisdomCardNumber;
+    _sepahBankAccountNumber.text = e.sepahBankAccountNumber;
+    _veteranDisabilityPercentage.text = e.veteranDisabilityPercentage;
+    _dependentsCount.text = e.dependentsCount;
     _hireDate = e.hireDate;
+    _employmentDate = e.employmentDate;
+    _retirementDate = e.retirementDate;
     _endDate = e.endDate;
     _active = e.isActive;
   }
@@ -838,7 +859,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
               e.id != widget.employee?.id &&
               (national ? e.nationalCode : e.personnelCode) == v!.trim(),
         )
-        ? (national ? 'کد ملی تکراری است.' : 'کد پرسنلی تکراری است.')
+        ? (national ? 'کد ملی تکراری است.' : 'کد کارگزینی تکراری است.')
         : null;
   }
 
@@ -851,48 +872,95 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       _mobile,
       _code,
       _title,
+      _organizationalMembership,
       _lastServiceUnit,
       _specialization,
       _address,
       _battleOperations,
+      _battlefrontDurationMonths,
+      _wisdomCardNumber,
+      _sepahBankAccountNumber,
+      _veteranDisabilityPercentage,
+      _dependentsCount,
     ]) {
       c.dispose();
     }
     super.dispose();
   }
 
-  Future<void> _pickDate({
-    required bool endDate,
-    bool battlefront = false,
-  }) async {
-    final selectedDate = battlefront
-        ? (endDate ? _battlefrontEndDate : _battlefrontStartDate)
-        : (endDate ? _endDate : _hireDate);
+  Future<void> _pickDate({required bool endDate}) async {
+    final selectedDate = endDate ? _endDate : _hireDate;
     final date = await showDialog<DateTime>(
       useRootNavigator: false,
       context: context,
       builder: (_) => _JalaliDatePicker(
         initialDate: selectedDate,
-        title: battlefront
-            ? (endDate ? 'انتخاب تاریخ پایان جبهه' : 'انتخاب تاریخ حضور در جبهه')
-            : (endDate
-                  ? 'انتخاب تاریخ پایان همکاری'
-                  : 'انتخاب تاریخ شروع همکاری'),
+        title: endDate
+            ? 'انتخاب تاریخ پایان همکاری'
+            : 'انتخاب تاریخ شروع همکاری',
       ),
     );
     if (date != null && mounted) {
       setState(() {
-        if (battlefront && endDate) {
-          _battlefrontEndDate = date;
-        } else if (battlefront) {
-          _battlefrontStartDate = date;
-        } else if (endDate) {
+        if (endDate) {
           _endDate = date;
         } else {
           _hireDate = date;
         }
       });
     }
+  }
+
+  Future<void> _pickEmploymentDate({required bool retirement}) async {
+    final date = await showDialog<DateTime>(
+      context: context,
+      builder: (_) => _JalaliDatePicker(
+        initialDate: retirement ? _retirementDate : _employmentDate,
+        title: retirement ? 'انتخاب تاریخ بازنشستگی' : 'انتخاب تاریخ استخدام',
+      ),
+    );
+    if (date != null && mounted) {
+      setState(() {
+        if (retirement) {
+          _retirementDate = date;
+        } else {
+          _employmentDate = date;
+        }
+      });
+    }
+  }
+
+  Widget _optionalEmploymentDateField({required bool retirement}) {
+    final date = retirement ? _retirementDate : _employmentDate;
+    final label = retirement ? 'تاریخ بازنشستگی' : 'تاریخ استخدام';
+    return _FormField(
+      child: Column(
+        children: [
+          OutlinedButton.icon(
+            onPressed: () => _pickEmploymentDate(retirement: retirement),
+            icon: const Icon(Icons.calendar_month_outlined),
+            label: Text(
+              date == null ? '$label (اختیاری)' : '$label: ${_jalali(date)}',
+            ),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
+              alignment: Alignment.centerRight,
+            ),
+          ),
+          if (date != null)
+            TextButton(
+              onPressed: () => setState(() {
+                if (retirement) {
+                  _retirementDate = null;
+                } else {
+                  _employmentDate = null;
+                }
+              }),
+              child: Text('پاک کردن $label'),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _pickDispatchDate() async {
@@ -914,12 +982,16 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
 
   String _normalizeMobile(String value) {
     var mobile = value
-        .replaceAllMapped(RegExp(r'[۰-۹]'), (match) => String.fromCharCode(
-            48 + match.group(0)!.codeUnitAt(0) - 0x06f0,
-          ))
-        .replaceAllMapped(RegExp(r'[٠-٩]'), (match) => String.fromCharCode(
-            48 + match.group(0)!.codeUnitAt(0) - 0x0660,
-          ))
+        .replaceAllMapped(
+          RegExp(r'[۰-۹]'),
+          (match) =>
+              String.fromCharCode(48 + match.group(0)!.codeUnitAt(0) - 0x06f0),
+        )
+        .replaceAllMapped(
+          RegExp(r'[٠-٩]'),
+          (match) =>
+              String.fromCharCode(48 + match.group(0)!.codeUnitAt(0) - 0x0660),
+        )
         .replaceAll(RegExp(r'[\s\-()]'), '');
     if (mobile.startsWith('+98')) mobile = '0${mobile.substring(3)}';
     if (mobile.startsWith('98') && mobile.length == 12) {
@@ -932,7 +1004,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
     final mobile = _normalizeMobile(value ?? '');
     return RegExp(r'^09\d{9}$').hasMatch(mobile)
         ? null
-        : 'شماره موبایل معتبر نیست.';
+        : 'شماره تلفن همراه معتبر نیست.';
   }
 
   InputDecoration _dec(String text) =>
@@ -955,21 +1027,10 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       );
       return;
     }
+    final battlefrontDuration = int.tryParse(_battlefrontDurationMonths.text);
     if (_hasBattlefrontService &&
-        (_battlefrontStartDate == null ||
-            _battlefrontEndDate == null ||
-            _battleOperations.text.trim().isEmpty)) {
-      setState(
-        () => _saveError =
-            'تاریخ حضور، تاریخ پایان و عملیات‌های جبهه را وارد کنید.',
-      );
-      return;
-    }
-    if (_hasBattlefrontService &&
-        _battlefrontEndDate!.isBefore(_battlefrontStartDate!)) {
-      setState(
-        () => _saveError = 'تاریخ پایان جبهه نمی‌تواند قبل از تاریخ حضور باشد.',
-      );
+        (battlefrontDuration == null || battlefrontDuration <= 0)) {
+      setState(() => _saveError = 'مدت حضور در جبهه را برحسب ماه وارد کنید.');
       return;
     }
     if (_collaborationType == 'سرباز وظیفه' && _dispatchDate == null) {
@@ -987,28 +1048,41 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       personnelCode: _code.text.trim(),
       mobile: _normalizeMobile(_mobile.text),
       hireDate: _hireDate!,
+      employmentDate: _employmentDate,
+      retirementDate: _retirementDate,
       isActive: _active,
       nationalCode: _nationalId.text.trim(),
       jobTitle: _title.text.trim(),
+      organizationalMembership: _organizationalMembership.text.trim(),
       department: Employee.organizationalUnit,
       province: _province!,
       sacrificeStatus: _sacrificeStatus!,
+      veteranDisabilityPercentage: _isVeteranStatus
+          ? _veteranDisabilityPercentage.text.trim()
+          : '',
+      maritalStatus: _maritalStatus!,
+      dependentsCount: _maritalStatus == 'متأهل'
+          ? _dependentsCount.text.trim()
+          : '',
       collaborationType: _collaborationType!,
       educationalDegree: _educationalDegree!,
       lastServiceUnit: _lastServiceUnit.text.trim(),
       specialization: _specialization.text.trim(),
-      dispatchDate:
-          _collaborationType == 'سرباز وظیفه' ? _dispatchDate : null,
-      accommodationStatus:
-          _collaborationType == 'سرباز وظیفه' ? _accommodationStatus! : '',
+      dispatchDate: _collaborationType == 'سرباز وظیفه' ? _dispatchDate : null,
+      accommodationStatus: _collaborationType == 'سرباز وظیفه'
+          ? _accommodationStatus!
+          : '',
       address: _address.text.trim(),
       endDate: _active ? null : _endDate,
       hasBattlefrontService: _hasBattlefrontService,
-      battlefrontStartDate:
-          _hasBattlefrontService ? _battlefrontStartDate : null,
-      battlefrontEndDate: _hasBattlefrontService ? _battlefrontEndDate : null,
-      battleOperations:
-          _hasBattlefrontService ? _battleOperations.text.trim() : '',
+      battlefrontDurationMonths: _hasBattlefrontService
+          ? battlefrontDuration!
+          : 0,
+      battleOperations: _hasBattlefrontService
+          ? _battleOperations.text.trim()
+          : '',
+      wisdomCardNumber: _wisdomCardNumber.text.trim(),
+      sepahBankAccountNumber: _sepahBankAccountNumber.text.trim(),
     );
     setState(() => _saving = true);
     try {
@@ -1030,6 +1104,9 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  bool get _isVeteranStatus =>
+      _sacrificeStatus == 'جانباز' || _sacrificeStatus == 'جانباز آزاده';
 
   @override
   Widget build(BuildContext context) => PopScope(
@@ -1103,7 +1180,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                             ],
                             maxLength: 11,
                             validator: _mobileValidator,
-                            decoration: _dec('شماره موبایل'),
+                            decoration: _dec('شماره تلفن همراه'),
                           ),
                         ),
                       ],
@@ -1119,14 +1196,46 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                           child: TextFormField(
                             controller: _code,
                             validator: (v) => _unique(v),
-                            decoration: _dec('کد پرسنلی'),
+                            decoration: _dec('کد کارگزینی'),
                           ),
                         ),
                         _FormField(
                           child: TextFormField(
                             controller: _title,
                             validator: _required,
-                            decoration: _dec('سمت'),
+                            decoration: _dec('درجه'),
+                          ),
+                        ),
+                        _FormField(
+                          child: TextFormField(
+                            controller: _wisdomCardNumber,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              const LocalizedDigitsFormatter(),
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: _dec('شماره کارت حکمت'),
+                          ),
+                        ),
+                        _FormField(
+                          child: TextFormField(
+                            controller: _sepahBankAccountNumber,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              const LocalizedDigitsFormatter(),
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: _dec('شماره حساب بانک سپه'),
+                          ),
+                        ),
+                        _FormField(
+                          child: TextFormField(
+                            key: const ValueKey(
+                              'employee-organizational-membership',
+                            ),
+                            controller: _organizationalMembership,
+                            maxLength: 250,
+                            decoration: _dec('عضویت سازمانی (اختیاری)'),
                           ),
                         ),
                         _FormField(
@@ -1166,10 +1275,53 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                                 child: Text('جانباز آزاده'),
                               ),
                             ],
-                            onChanged: (value) =>
-                                setState(() => _sacrificeStatus = value),
+                            onChanged: (value) => setState(() {
+                              _sacrificeStatus = value;
+                              if (!_isVeteranStatus) {
+                                _veteranDisabilityPercentage.clear();
+                              }
+                            }),
                           ),
                         ),
+                        if (_isVeteranStatus)
+                          _FormField(
+                            child: TextFormField(
+                              controller: _veteranDisabilityPercentage,
+                              validator: _required,
+                              decoration: _dec('درصد جانبازی'),
+                            ),
+                          ),
+                        _FormField(
+                          child: DropdownButtonFormField<String>(
+                            key: const ValueKey('employee-marital-status'),
+                            isExpanded: true,
+                            value: _maritalStatus,
+                            validator: _required,
+                            decoration: _dec('وضعیت تأهل'),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'مجرد',
+                                child: Text('مجرد'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'متأهل',
+                                child: Text('متأهل'),
+                              ),
+                            ],
+                            onChanged: (value) => setState(() {
+                              _maritalStatus = value;
+                              if (value != 'متأهل') _dependentsCount.clear();
+                            }),
+                          ),
+                        ),
+                        if (_maritalStatus == 'متأهل')
+                          _FormField(
+                            child: TextFormField(
+                              controller: _dependentsCount,
+                              validator: _required,
+                              decoration: _dec('تعداد عائله تحت تکفل'),
+                            ),
+                          ),
                         _FormField(
                           child: DropdownButtonFormField<String>(
                             key: const ValueKey('employee-collaboration-type'),
@@ -1178,33 +1330,65 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                             validator: _required,
                             decoration: _dec('نوع همکاری'),
                             items: const [
-                              DropdownMenuItem(value: 'نظامی شاغل', child: Text('نظامی شاغل')),
-                              DropdownMenuItem(value: 'سرباز وظیفه', child: Text('سرباز وظیفه')),
-                              DropdownMenuItem(value: 'پیشکوست شاغل ( هیئت مرکزی )', child: Text('پیشکوست شاغل ( هیئت مرکزی )')),
-                              DropdownMenuItem(value: 'پیشکوست شاغل ( گروه های استانی )', child: Text('پیشکوست شاغل ( گروه های استانی )')),
-                              DropdownMenuItem(value: 'اساتید', child: Text('اساتید')),
+                              DropdownMenuItem(
+                                value: 'معارف جنگ و روساء گروه های استانی',
+                                child: Text(
+                                  'معارف جنگ و روساء گروه های استانی',
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 'نظامی شاغل',
+                                child: Text('نظامی شاغل'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'سرباز وظیفه',
+                                child: Text('سرباز وظیفه'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'پیشکوست شاغل ( هیئت مرکزی )',
+                                child: Text('پیشکوست شاغل ( هیئت مرکزی )'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'پیشکوست شاغل ( گروه های استانی )',
+                                child: Text('پیشکوست شاغل ( گروه های استانی )'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'اساتید',
+                                child: Text('اساتید'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'اساتید پیشکسوت',
+                                child: Text('اساتید پیشکسوت'),
+                              ),
                             ],
-                            onChanged: (value) =>
-                                setState(() {
-                                  _collaborationType = value;
-                                  if (value != 'سرباز وظیفه') {
-                                    _dispatchDate = null;
-                                    _accommodationStatus = null;
-                                  }
-                                }),
+                            onChanged: (value) => setState(() {
+                              _collaborationType = value;
+                              if (value != 'سرباز وظیفه') {
+                                _dispatchDate = null;
+                                _accommodationStatus = null;
+                              }
+                            }),
                           ),
                         ),
                         if (_collaborationType == 'سرباز وظیفه')
                           _FormField(
                             child: DropdownButtonFormField<String>(
-                              key: const ValueKey('employee-accommodation-status'),
+                              key: const ValueKey(
+                                'employee-accommodation-status',
+                              ),
                               isExpanded: true,
                               value: _accommodationStatus,
                               validator: _required,
                               decoration: _dec('وضعیت اسکان'),
                               items: const [
-                                DropdownMenuItem(value: 'بومی', child: Text('بومی')),
-                                DropdownMenuItem(value: 'غیر بومی', child: Text('غیر بومی')),
+                                DropdownMenuItem(
+                                  value: 'بومی',
+                                  child: Text('بومی'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'غیر بومی',
+                                  child: Text('غیر بومی'),
+                                ),
                               ],
                               onChanged: (value) =>
                                   setState(() => _accommodationStatus = value),
@@ -1238,12 +1422,30 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                                 value: 'بی سواد',
                                 child: Text('بی سواد'),
                               ),
-                              DropdownMenuItem(value: 'سیکل', child: Text('سیکل')),
-                              DropdownMenuItem(value: 'دیپلم', child: Text('دیپلم')),
-                              DropdownMenuItem(value: 'فوق دیپلم', child: Text('فوق دیپلم')),
-                              DropdownMenuItem(value: 'لیسانس', child: Text('لیسانس')),
-                              DropdownMenuItem(value: 'فوق لیسانس', child: Text('فوق لیسانس')),
-                              DropdownMenuItem(value: 'دکترا', child: Text('دکترا')),
+                              DropdownMenuItem(
+                                value: 'سیکل',
+                                child: Text('سیکل'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'دیپلم',
+                                child: Text('دیپلم'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'فوق دیپلم',
+                                child: Text('فوق دیپلم'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'لیسانس',
+                                child: Text('لیسانس'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'فوق لیسانس',
+                                child: Text('فوق لیسانس'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'دکترا',
+                                child: Text('دکترا'),
+                              ),
                             ],
                             onChanged: (value) =>
                                 setState(() => _educationalDegree = value),
@@ -1316,14 +1518,15 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                             contentPadding: EdgeInsets.zero,
                             title: const Text('سابقه حضور در جبهه'),
                             subtitle: Text(
-                              _hasBattlefrontService ? 'داشته است' : 'نداشته است',
+                              _hasBattlefrontService
+                                  ? 'داشته است'
+                                  : 'نداشته است',
                             ),
                             value: _hasBattlefrontService,
                             onChanged: (value) => setState(() {
                               _hasBattlefrontService = value;
                               if (!value) {
-                                _battlefrontStartDate = null;
-                                _battlefrontEndDate = null;
+                                _battlefrontDurationMonths.clear();
                                 _battleOperations.clear();
                               }
                             }),
@@ -1331,39 +1534,14 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                         ),
                         if (_hasBattlefrontService) ...[
                           _FormField(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _pickDate(
-                                endDate: false,
-                                battlefront: true,
-                              ),
-                              icon: const Icon(Icons.event_available_outlined),
-                              label: Text(
-                                _battlefrontStartDate == null
-                                    ? 'انتخاب تاریخ حضور در جبهه'
-                                    : _jalali(_battlefrontStartDate!),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size.fromHeight(56),
-                                alignment: Alignment.centerRight,
-                              ),
-                            ),
-                          ),
-                          _FormField(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _pickDate(
-                                endDate: true,
-                                battlefront: true,
-                              ),
-                              icon: const Icon(Icons.event_busy_outlined),
-                              label: Text(
-                                _battlefrontEndDate == null
-                                    ? 'انتخاب تاریخ پایان جبهه'
-                                    : _jalali(_battlefrontEndDate!),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size.fromHeight(56),
-                                alignment: Alignment.centerRight,
-                              ),
+                            child: TextFormField(
+                              controller: _battlefrontDurationMonths,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                const LocalizedDigitsFormatter(),
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: _dec('مدت حضور در جبهه (ماه)'),
                             ),
                           ),
                           _FormField(
@@ -1421,6 +1599,8 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                             ],
                           ),
                         ),
+                        _optionalEmploymentDateField(retirement: false),
+                        _optionalEmploymentDateField(retirement: true),
                         if (!_active)
                           _FormField(
                             child: OutlinedButton.icon(
@@ -1458,9 +1638,13 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.check_rounded),
+                : Icon(
+                    widget.employee == null
+                        ? Icons.check_rounded
+                        : Icons.update_rounded,
+                  ),
             label: Text(
-              widget.employee == null ? 'ثبت کارمند' : 'ذخیره تغییرات',
+              widget.employee == null ? 'ثبت کارمند' : 'به‌روزرسانی کارمند',
             ),
           ),
         ],
@@ -1746,12 +1930,10 @@ class _StatsGrid extends StatelessWidget {
   final List<Employee> employees;
   List<_Stat> get stats {
     final now = DateTime.now();
-    int count(int minimum, int maximum) => employees
-        .where((e) {
-          final years = employeeExperience(e, now: now).years;
-          return years >= minimum && years <= maximum;
-        })
-        .length;
+    int count(int minimum, int maximum) => employees.where((e) {
+      final years = employeeExperience(e, now: now).years;
+      return years >= minimum && years <= maximum;
+    }).length;
     return [
       _Stat(
         AppText.upToTenYears,
@@ -1902,7 +2084,10 @@ class _EmploymentStatusChart extends StatelessWidget {
         active: active,
         inactive: inactive,
         total: employees.length,
-        labels: const ['\u0641\u0639\u0627\u0644', '\u063a\u06cc\u0631\u0641\u0639\u0627\u0644'],
+        labels: const [
+          '\u0641\u0639\u0627\u0644',
+          '\u063a\u06cc\u0631\u0641\u0639\u0627\u0644',
+        ],
         colors: const [Color(0xFF217A67), Color(0xFFF2994A)],
       ),
     );
@@ -1981,12 +2166,23 @@ class _ExperienceChart extends StatelessWidget {
     final values = [0, 0, 0, 0];
     for (final employee in employees) {
       final years = employeeExperience(employee, now: now).years;
-      values[years <= 10 ? 0 : years <= 15 ? 1 : years <= 20 ? 2 : 3]++;
+      values[years <= 10
+          ? 0
+          : years <= 15
+          ? 1
+          : years <= 20
+          ? 2
+          : 3]++;
     }
     return _ChartCard(
       title: '\u062a\u0648\u0632\u06cc\u0639 \u0633\u0627\u0628\u0642\u0647 \u06a9\u0627\u0631\u06a9\u0646\u0627\u0646',
       child: _PieChart(
-        labels: const ['\u06f0\u2013\u06f1\u06f0', '\u06f1\u06f1\u2013\u06f1\u06f5', '\u06f1\u06f6\u2013\u06f2\u06f0', '\u06f2\u06f1+'],
+        labels: const [
+          '\u06f0\u2013\u06f1\u06f0',
+          '\u06f1\u06f1\u2013\u06f1\u06f5',
+          '\u06f1\u06f6\u2013\u06f2\u06f0',
+          '\u06f2\u06f1+',
+        ],
         values: values,
         colors: const [
           Color(0xFF2878B5),
@@ -2227,7 +2423,22 @@ class _ChartCard extends StatelessWidget {
   final String title;
   final Widget child;
   @override
-  Widget build(BuildContext context) => _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF344054))), const SizedBox(height: 20), child]));
+  Widget build(BuildContext context) => _Panel(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF344054),
+          ),
+        ),
+        const SizedBox(height: 20),
+        child,
+      ],
+    ),
+  );
 }
 
 class _PieChart extends StatelessWidget {
@@ -2365,7 +2576,12 @@ class _ChartLegend extends StatelessWidget {
   );
 }
 
-class _LegendItem { const _LegendItem(this.label, this.value, this.color); final String label; final int value; final Color color; }
+class _LegendItem {
+  const _LegendItem(this.label, this.value, this.color);
+  final String label;
+  final int value;
+  final Color color;
+}
 
 class _DonutChartPainter extends CustomPainter {
   const _DonutChartPainter({required this.active, required this.total});
@@ -2375,15 +2591,33 @@ class _DonutChartPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.shortestSide / 2 - 14;
     final rect = Rect.fromCircle(center: center, radius: radius);
-    final paint = Paint()..style = PaintingStyle.stroke..strokeWidth = 18..strokeCap = StrokeCap.round;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 18
+      ..strokeCap = StrokeCap.round;
     paint.color = const Color(0xFFF2994A);
     canvas.drawCircle(center, radius, paint);
-    if (total > 0 && active > 0) { paint.color = const Color(0xFF217A67); canvas.drawArc(rect, -1.5708, 6.28318 * active / total, false, paint); }
-    final text = TextPainter(text: TextSpan(text: _fa('$total'), style: const TextStyle(color: Color(0xFF1D2939), fontSize: 26, fontWeight: FontWeight.w800)), textDirection: TextDirection.rtl)..layout();
+    if (total > 0 && active > 0) {
+      paint.color = const Color(0xFF217A67);
+      canvas.drawArc(rect, -1.5708, 6.28318 * active / total, false, paint);
+    }
+    final text = TextPainter(
+      text: TextSpan(
+        text: _fa('$total'),
+        style: const TextStyle(
+          color: Color(0xFF1D2939),
+          fontSize: 26,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      textDirection: TextDirection.rtl,
+    )..layout();
     text.paint(canvas, center - Offset(text.width / 2, text.height / 2));
   }
+
   @override
-  bool shouldRepaint(covariant _DonutChartPainter old) => old.active != active || old.total != total;
+  bool shouldRepaint(covariant _DonutChartPainter old) =>
+      old.active != active || old.total != total;
 }
 
 class _MultiSliceDonutPainter extends CustomPainter {
@@ -2397,7 +2631,9 @@ class _MultiSliceDonutPainter extends CustomPainter {
     final radius = size.shortestSide / 2 - 10;
     final rect = Rect.fromCircle(center: center, radius: radius);
     final total = values.fold<int>(0, (sum, value) => sum + value);
-    final paint = Paint()..style = PaintingStyle.stroke..strokeWidth = 24;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 24;
     if (total == 0) {
       paint.color = const Color(0xFFE8EDF3);
       canvas.drawCircle(center, radius, paint);

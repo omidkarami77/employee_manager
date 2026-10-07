@@ -13,7 +13,7 @@ flutter run -d windows
 
 برای اتصال به آدرس دیگری، `--dart-define=POCKETBASE_URL=<server-url>` را به دستور اجرا اضافه کنید.
 
-فیلدهای Collection عبارت‌اند از `first_name`، `last_name`، `national_code_`، `mobile`، `personnel_code`، `job_title`، `department`، `province`، `hire_date`، `end_date`، `is_active`، `has_battlefront_service`، `battlefront_start_date`، `battlefront_end_date`، `battle_operations` و `sacrifice_status`. تاریخ‌ها به صورت روز تقویمی ذخیره می‌شوند؛ `end_date` اختیاری است و هنگام فعال شدن دوباره کارمند پاک می‌شود.
+فیلدهای Collection عبارت‌اند از `first_name`، `last_name`، `national_code_`، `mobile`، `personnel_code`، `job_title`، `wisdom_card_number`، `sepah_bank_account_number`، `department`، `province`، `hire_date`، `end_date`، `is_active`، `has_battlefront_service`، `battlefront_duration_months`، `battle_operations`، `sacrifice_status`، `veteran_disability_percentage`، `marital_status` و `dependents_count`. مدت حضور در جبهه برحسب ماه ذخیره می‌شود. تاریخ استخدام (`employment_date`) و تاریخ بازنشستگی (`retirement_date`) مستقل از تاریخ شروع همکاری و اختیاری هستند. مهاجرت `1788739216_add_employee_employment_and_retirement_dates.js` این دو فیلد را اضافه می‌کند. تاریخ‌ها به صورت روز تقویمی ذخیره می‌شوند؛ `end_date` اختیاری است و هنگام فعال شدن دوباره کارمند پاک می‌شود.
 
 ورود از Auth Collection به نام `users` با ایمیل و رمز عبور انجام می‌شود. `AuthRepository` و `AuthCubit` حالت‌های initial، loading، authenticated، unauthenticated و error را مدیریت می‌کنند. احراز هویت و EmployeeRepository یک PocketBase client و AuthStore مشترک دارند. هنگام شروع برنامه، نشست ذخیره‌شده با `authRefresh` از سرور اعتبارسنجی می‌شود؛ نشست آفلاین یا نامعتبر اجازه ورود نمی‌دهد. نقش در بازگشت به برنامه و هر پنج دقیقه بازخوانی می‌شود. خروج، AuthStore و ذخیره امن نشست را پاک می‌کند و صفحه‌ها و فرم‌های باز کارکنان بسته می‌شوند.
 
@@ -30,11 +30,11 @@ flutter run -d windows
 
 محدودیت تغییر کارکنان علاوه بر UI، در Controller، Repository و API Rules سرور اعمال می‌شود. نقش فقط `admin` یا `user` است و نقش خالی/ناشناخته مجاز نیست. نشست به آدرس سرور وابسته است و رمز عبور ذخیره نمی‌شود. بسته‌های جدید این بخش `flutter_bloc` و `flutter_secure_storage` هستند. [مستندات API Rules](https://pocketbase.io/docs/api-rules-and-filters/)
 
-فرم تکراری بودن کد ملی و کد پرسنلی را در لیست دریافت‌شده بررسی می‌کند و خطاهای اعتبارسنجی سرور را نیز نشان می‌دهد. برای تضمین یکتایی هنگام ثبت هم‌زمان از چند برنامه، این دو فیلد باید در دیتابیس نیز دارای ایندکس یکتا باشند.
+فرم تکراری بودن کد ملی و کد کارگزینی را در لیست دریافت‌شده بررسی می‌کند و خطاهای اعتبارسنجی سرور را نیز نشان می‌دهد. برای تضمین یکتایی هنگام ثبت هم‌زمان از چند برنامه، این دو فیلد باید در دیتابیس نیز دارای ایندکس یکتا باشند.
 
-صفحه «گزارش‌ها» از همان `EmployeesController` و Repository مشترک استفاده می‌کند. حداقل سابقه (همه، ۵، ۱۰، ۱۵ و ۲۰ سال)، وضعیت همکاری و جستجوی نام، نام خانوادگی، کد پرسنلی یا کد ملی به‌صورت ترکیبی و لحظه‌ای اعمال می‌شوند. سابقه با utility موجود تا امروز یا تاریخ پایان همکاری محاسبه می‌شود.
+صفحه «گزارش‌ها» از همان `EmployeesController` و Repository مشترک استفاده می‌کند. حداقل سابقه (همه، ۵، ۱۰، ۱۵ و ۲۰ سال)، وضعیت همکاری و جستجوی نام، نام خانوادگی، کد کارگزینی یا کد ملی به‌صورت ترکیبی و لحظه‌ای اعمال می‌شوند. سابقه با utility موجود تا امروز یا تاریخ پایان همکاری محاسبه می‌شود.
 
-«خروجی Excel» فقط نتایج فعلی را با تاریخ شمسی، ستون‌های فارسی و جهت راست‌به‌چپ صادر می‌کند. کدها و شماره موبایل متن هستند تا صفر ابتدایی حفظ شود. بسته‌های `excel` و `file_selector` فایل `employees_report_YYYY-MM-DD.xlsx` را با پنجره انتخاب محل ذخیره Windows ایجاد می‌کنند؛ انصراف از پنجره فایلی نمی‌سازد. بعد از افزودن افزونه، برنامه را کامل متوقف و دوباره اجرا کنید. اگر Flutter خطای symlink داد، Developer Mode ویندوز را فعال کنید.
+«خروجی Excel» فقط نتایج فعلی را با تاریخ شمسی، ستون‌های فارسی و جهت راست‌به‌چپ صادر می‌کند. کدها و شماره تلفن همراه متن هستند تا صفر ابتدایی حفظ شود. بسته‌های `excel` و `file_selector` فایل `employees_report_YYYY-MM-DD.xlsx` را با پنجره انتخاب محل ذخیره Windows ایجاد می‌کنند؛ انصراف از پنجره فایلی نمی‌سازد. بعد از افزودن افزونه، برنامه را کامل متوقف و دوباره اجرا کنید. اگر Flutter خطای symlink داد، Developer Mode ویندوز را فعال کنید.
 
 تست‌ها از پاسخ‌های شبیه‌سازی‌شده استفاده می‌کنند و دیتابیس واقعی را تغییر نمی‌دهند:
 
@@ -48,3 +48,5 @@ flutter analyze
 ```powershell
 python tool/test_pocketbase_auth.py C:/pocketbase/pocketbase.exe
 ```
+
+فیلد «عضویت سازمانی» (`organizational_membership`) متن اختیاری است و در افزودن، ویرایش، پروفایل، جستجوی گزارش‌ها و Excel نمایش داده می‌شود. برای ذخیره آن، مهاجرت `1788739217_add_employee_organizational_membership.js` را در `pb_migrations` سرور PocketBase قرار دهید و سرور را مجدداً راه‌اندازی کنید.

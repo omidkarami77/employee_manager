@@ -97,8 +97,8 @@ void main() {
     repository.load = () async => [original];
     await controller.loadEmployees();
     const failure = EmployeeRepositoryException(
-      'کد پرسنلی تکراری است',
-      fieldErrors: {'personnel_code': 'کد پرسنلی تکراری است'},
+      'کد کارگزینی تکراری است',
+      fieldErrors: {'personnel_code': 'کد کارگزینی تکراری است'},
     );
     repository.update = (_) async => throw failure;
 

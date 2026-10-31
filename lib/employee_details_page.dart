@@ -166,9 +166,10 @@ class _EmployeeDetailsPageState extends State<EmployeeDetailsPage> {
   }
 
   void _message(String message) {
-    if (mounted)
+    if (mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   @override

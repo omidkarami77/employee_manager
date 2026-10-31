@@ -203,7 +203,13 @@ void main() {
           find.byKey(const ValueKey('employee-department')),
         );
         expect(departmentField.initialValue, Employee.organizationalUnit);
-        expect(departmentField.readOnly, isTrue);
+        final departmentTextField = tester.widget<TextField>(
+          find.descendant(
+            of: find.byKey(const ValueKey('employee-department')),
+            matching: find.byType(TextField),
+          ),
+        );
+        expect(departmentTextField.readOnly, isTrue);
         await tester.tap(
           find.byKey(const ValueKey('employee-sacrifice-status')),
         );

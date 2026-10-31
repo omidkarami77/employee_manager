@@ -10,6 +10,8 @@ import 'utils/experience.dart';
 import 'utils/employee_report.dart';
 import 'utils/localized_digits_formatter.dart';
 import 'employee_details_page.dart';
+import 'report_preview_page.dart';
+import 'utils/employee_report_pdf.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1250,7 +1252,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                           child: DropdownButtonFormField<String>(
                             key: const ValueKey('employee-sacrifice-status'),
                             isExpanded: true,
-                            value: _sacrificeStatus,
+                            initialValue: _sacrificeStatus,
                             validator: _required,
                             decoration: _dec('وضعیت ایثارگری'),
                             items: const [
@@ -1295,7 +1297,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                           child: DropdownButtonFormField<String>(
                             key: const ValueKey('employee-marital-status'),
                             isExpanded: true,
-                            value: _maritalStatus,
+                            initialValue: _maritalStatus,
                             validator: _required,
                             decoration: _dec('وضعیت تأهل'),
                             items: const [
@@ -1326,7 +1328,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                           child: DropdownButtonFormField<String>(
                             key: const ValueKey('employee-collaboration-type'),
                             isExpanded: true,
-                            value: _collaborationType,
+                            initialValue: _collaborationType,
                             validator: _required,
                             decoration: _dec('نوع همکاری'),
                             items: const [
@@ -1377,7 +1379,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                                 'employee-accommodation-status',
                               ),
                               isExpanded: true,
-                              value: _accommodationStatus,
+                              initialValue: _accommodationStatus,
                               validator: _required,
                               decoration: _dec('وضعیت اسکان'),
                               items: const [
@@ -1414,7 +1416,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                           child: DropdownButtonFormField<String>(
                             key: const ValueKey('employee-educational-degree'),
                             isExpanded: true,
-                            value: _educationalDegree,
+                            initialValue: _educationalDegree,
                             validator: _required,
                             decoration: _dec('مدرک تحصیلی'),
                             items: const [
@@ -1472,7 +1474,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                               DropdownButtonFormField<String>(
                                 key: const ValueKey('employee-province'),
                                 isExpanded: true,
-                                value: _province,
+                                initialValue: _province,
                                 validator: _required,
                                 decoration: _dec('استان محل خدمت'),
                                 items: [
@@ -2447,15 +2449,11 @@ class _PieChart extends StatelessWidget {
     required this.values,
     required this.colors,
     this.detailSuffix,
-    this.legendGap = 24,
-    this.legendOnLeft = false,
   });
   final List<String> labels;
   final List<int> values;
   final List<Color> colors;
   final String? detailSuffix;
-  final double legendGap;
-  final bool legendOnLeft;
   @override
   Widget build(BuildContext context) {
     final chart = Expanded(
@@ -2505,7 +2503,7 @@ class _PieChart extends StatelessWidget {
       textDirection: TextDirection.ltr,
       children: [
         chart,
-        SizedBox(width: legendGap),
+        const SizedBox(width: 24),
         legend,
       ],
     );

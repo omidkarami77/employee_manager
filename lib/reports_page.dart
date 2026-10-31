@@ -17,6 +17,42 @@ class _ReportsPageState extends State<_ReportsPage> {
   String? _collaborationType;
   bool _exporting = false;
 
+  void _preview(List<Employee> employees, DateTime now) {
+    // Keep the report stable if records or filters change while previewing.
+    final snapshot = List<Employee>.unmodifiable(employees);
+    final filters = [
+      'سابقه: ${switch (_experienceRange) {
+        10 => 'تا ۱۰ سال',
+        15 => '۱۱ تا ۱۵ سال',
+        20 => '۱۶ تا ۲۰ سال',
+        30 => '۲۱ تا ۳۰ سال',
+        _ => 'همه',
+      }}',
+      'وضعیت: ${_status == 0
+          ? 'همه'
+          : _status == 1
+          ? 'فعال'
+          : 'غیرفعال'}',
+      'استان: ${_province ?? 'همه'}',
+      'نوع همکاری: ${_collaborationType ?? 'همه'}',
+      if (_search.text.trim().isNotEmpty) 'جستجو: ${_search.text.trim()}',
+    ].join(' • ');
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReportPreviewPage(
+          fileName: 'employees_report_${now.year}-${now.month}-${now.day}.pdf',
+          buildReport: () => buildEmployeeReportPdf(
+            employees: snapshot,
+            generatedAt: now,
+            dateLabel: _jalali(now),
+            filters: filters,
+            formatDate: _jalali,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _search.dispose();
@@ -108,7 +144,7 @@ class _ReportsPageState extends State<_ReportsPage> {
       children: [
         _PageHeader(
           title: AppText.reports,
-          description: 'گزارش کارکنان بر اساس سابقه کار',
+          description: 'فیلتر کارکنان، خروجی Excel و گزارش رسمی قابل چاپ',
           action: IconButton(
             tooltip: 'به‌روزرسانی',
             onPressed: _exporting || widget.controller.isMutating
@@ -167,7 +203,7 @@ class _ReportsPageState extends State<_ReportsPage> {
                 child: DropdownButtonFormField<String?>(
                   key: const ValueKey('report-province'),
                   isExpanded: true,
-                  value: _province,
+                  initialValue: _province,
                   decoration: const InputDecoration(
                     labelText: 'استان',
                     border: OutlineInputBorder(),
@@ -192,7 +228,7 @@ class _ReportsPageState extends State<_ReportsPage> {
                 child: DropdownButtonFormField<String?>(
                   key: const ValueKey('report-collaboration-type'),
                   isExpanded: true,
-                  value: _collaborationType,
+                  initialValue: _collaborationType,
                   decoration: const InputDecoration(
                     labelText: 'نوع همکاری',
                     border: OutlineInputBorder(),
@@ -267,6 +303,17 @@ class _ReportsPageState extends State<_ReportsPage> {
                     ),
                   ),
                   FilledButton.icon(
+                    key: const ValueKey('report-print-preview'),
+                    onPressed:
+                        employees.isEmpty ||
+                            _exporting ||
+                            widget.controller.isMutating
+                        ? null
+                        : () => _preview(employees, now),
+                    icon: const Icon(Icons.print_outlined),
+                    label: const Text('پیش‌نمایش و چاپ / PDF'),
+                  ),
+                  FilledButton.icon(
                     onPressed: employees.isEmpty || _exporting
                         ? null
                         : () => _export(employees, now),
@@ -282,6 +329,11 @@ class _ReportsPageState extends State<_ReportsPage> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'گزارش چاپی: جدول خلاصه در کاغذ A4 افقی، همراه با آمار و فیلترها. برای دریافت همه جزئیات از Excel استفاده کنید.',
+                style: TextStyle(color: Color(0xFF667085), fontSize: 12),
               ),
               const SizedBox(height: 20),
               if (employees.isEmpty)

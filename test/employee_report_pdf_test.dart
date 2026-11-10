@@ -8,9 +8,19 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('report title follows the selected collaboration filter', () {
+    expect(employeeReportTitle(null), 'گزارش کارکنان');
+    expect(employeeReportTitle(''), 'گزارش کارکنان');
+    expect(employeeReportTitle('نظامی شاغل'), 'گزارش کارکنان نظامی شاغل');
+    expect(
+      employeeReportTitle('معارف جنگ و روساء گروه های استانی'),
+      'گزارش کارکنان هیئت مرکزی و گروه های استانی',
+    );
+  });
+
   test('Persian report embeds its font and paginates a large result set', () async {
     final employees = List.generate(
-      120,
+      215,
       (index) => Employee(
         id: '$index',
         firstName: 'محمدرضا',
@@ -36,9 +46,25 @@ void main() {
     expect(content, startsWith('%PDF-'));
     expect(
       RegExp(r'/Type\s*/Page\b').allMatches(content).length,
-      greaterThan(1),
+      inInclusiveRange(2, 40),
     );
     expect(content, contains('/FontFile2'));
+    final collaborationBytes = await buildEmployeeReportPdf(
+      employees: employees,
+      generatedAt: DateTime(2026, 10, 28),
+      dateLabel: '۱۴۰۵/۰۸/۰۶',
+      filters: 'استان: همه',
+      formatDate: (_) => '۱۳۹۴/۱۰/۱۱',
+      collaborationReport: true,
+      collaborationType: 'معارف جنگ و روساء گروه های استانی',
+    );
+    final collaborationContent = latin1.decode(collaborationBytes);
+    expect(collaborationContent, startsWith('%PDF-'));
+    expect(collaborationContent, contains('/FontFile2'));
+    expect(
+      RegExp(r'/Type\s*/Page\b').allMatches(collaborationContent).length,
+      inInclusiveRange(2, 40),
+    );
     // Optional artifact for visual review, without touching production records.
     const preview = String.fromEnvironment('REPORT_SAMPLE');
     if (preview.isNotEmpty) await File(preview).writeAsBytes(bytes);

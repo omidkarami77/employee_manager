@@ -184,6 +184,7 @@ class _EmployeeManagerHomeState extends State<EmployeeManagerHome> {
                 onLogout: widget.auth.logout,
                 onSelected: (index) {
                   if (index == 3 && !widget.auth.canManageEmployees) return;
+                  if (index == _selectedIndex) return;
                   setState(() => _selectedIndex = index);
                 },
               ),
@@ -439,6 +440,48 @@ class _PageContent extends StatelessWidget {
   }
 }
 
+class _EmployeeTablePager extends StatelessWidget {
+  const _EmployeeTablePager({
+    required this.page,
+    required this.total,
+    required this.onChanged,
+  });
+
+  final int page;
+  final int total;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (total <= 25) return const SizedBox.shrink();
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Text(
+          _fa('${page * 25 + 1}–${math.min((page + 1) * 25, total)} / $total'),
+        ),
+        const SizedBox(width: 12),
+        IconButton(
+          tooltip: 'صفحهٔ قبل',
+          onPressed: page > 0 ? () => onChanged(page - 1) : null,
+          icon: const Icon(
+            Icons.chevron_left,
+            textDirection: TextDirection.ltr,
+          ),
+        ),
+        IconButton(
+          tooltip: 'صفحهٔ بعد',
+          onPressed: (page + 1) * 25 < total ? () => onChanged(page + 1) : null,
+          icon: const Icon(
+            Icons.chevron_right,
+            textDirection: TextDirection.ltr,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _PageHeader extends StatelessWidget {
   const _PageHeader({
     required this.title,
@@ -512,6 +555,7 @@ class _EmployeesPage extends StatefulWidget {
 }
 
 class _EmployeesPageState extends State<_EmployeesPage> {
+  int _page = 0;
   final _search = TextEditingController();
   @override
   void dispose() {
@@ -591,6 +635,8 @@ class _EmployeesPageState extends State<_EmployeesPage> {
   @override
   Widget build(BuildContext context) {
     final employees = _shown;
+    final page = math.min(_page, math.max(0, (employees.length - 1) ~/ 25));
+    final start = page * 25;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -653,9 +699,15 @@ class _EmployeesPageState extends State<_EmployeesPage> {
                         : 'کارمندی با این مشخصات پیدا نشد.',
                   ),
                 ),
+              _EmployeeTablePager(
+                page: page,
+                total: employees.length,
+                onChanged: (value) => setState(() => _page = value),
+              ),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
+                  showCheckboxColumn: false,
                   columnSpacing: 30,
                   headingTextStyle: const TextStyle(
                     fontWeight: FontWeight.w700,
@@ -671,9 +723,12 @@ class _EmployeesPageState extends State<_EmployeesPage> {
                     DataColumn(label: Text('وضعیت')),
                     DataColumn(label: Text('عملیات')),
                   ],
-                  rows: employees.asMap().entries.map((entry) {
+                  rows: employees.asMap().entries.skip(start).take(25).map((
+                    entry,
+                  ) {
                     final employee = entry.value;
                     return DataRow(
+                      onSelectChanged: (_) => _view(employee),
                       cells: [
                         DataCell(Text(_fa('${entry.key + 1}'))),
                         DataCell(
@@ -1333,10 +1388,8 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                             decoration: _dec('نوع همکاری'),
                             items: const [
                               DropdownMenuItem(
-                                value: 'معارف جنگ و روساء گروه های استانی',
-                                child: Text(
-                                  'معارف جنگ و روساء گروه های استانی',
-                                ),
+                                value: Employee.provincialCollaboration,
+                                child: Text(Employee.provincialCollaboration),
                               ),
                               DropdownMenuItem(
                                 value: 'نظامی شاغل',
@@ -1355,12 +1408,12 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                                 child: Text('پیشکوست شاغل ( گروه های استانی )'),
                               ),
                               DropdownMenuItem(
-                                value: 'اساتید',
-                                child: Text('اساتید'),
+                                value: 'استاد',
+                                child: Text('استاد'),
                               ),
                               DropdownMenuItem(
-                                value: 'اساتید پیشکسوت',
-                                child: Text('اساتید پیشکسوت'),
+                                value: 'استاد پیشکسوت',
+                                child: Text('استاد پیشکسوت'),
                               ),
                             ],
                             onChanged: (value) => setState(() {
@@ -2501,11 +2554,7 @@ class _PieChart extends StatelessWidget {
     );
     return Row(
       textDirection: TextDirection.ltr,
-      children: [
-        chart,
-        const SizedBox(width: 24),
-        legend,
-      ],
+      children: [chart, const SizedBox(width: 24), legend],
     );
   }
 }

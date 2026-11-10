@@ -9,6 +9,13 @@ String reportPersianDigits(String value) => value.replaceAllMapped(
   (match) => '۰۱۲۳۴۵۶۷۸۹'[int.parse(match[0]!)],
 );
 
+String employeeReportTitle(String? collaborationType) {
+  final type = collaborationType?.trim() ?? '';
+  if (type.isEmpty) return 'گزارش کارکنان';
+  final label = Employee.normalizeCollaborationType(type);
+  return 'گزارش کارکنان $label';
+}
+
 /// A compact print report; the complete personnel export remains in Excel.
 Future<Uint8List> buildEmployeeReportPdf({
   required List<Employee> employees,
@@ -16,29 +23,50 @@ Future<Uint8List> buildEmployeeReportPdf({
   required String dateLabel,
   required String filters,
   required String Function(DateTime) formatDate,
+  String? collaborationType,
+  bool collaborationReport = false,
 }) async {
   final font = pw.Font.ttf(
     await rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf'),
   );
-  final document = pw.Document(
-    title: 'گزارش کارکنان',
-    author: 'مدیریت کارکنان',
-  );
+  final title = employeeReportTitle(collaborationType);
+  final document = pw.Document(title: title, author: 'مدیریت کارکنان');
   const navy = PdfColor.fromInt(0xFF234569);
   const pale = PdfColor.fromInt(0xFFF0F4F8);
   final active = employees.where((e) => e.isActive).length;
-  final headers = [
-    'ردیف',
-    'نام و نام خانوادگی',
-    'کد کارگزینی',
-    'استان',
-    'نوع همکاری',
-    'شروع همکاری',
-    'شماره موبایل',
-    'وضعیت',
-  ];
+  final headers = collaborationReport
+      ? [
+          'ردیف',
+          'نام',
+          'نام خانوادگی',
+          'درجه',
+          'استان',
+          'نوع همکاری',
+          'تاریخ شروع همکاری',
+        ]
+      : [
+          'ردیف',
+          'نام و نام خانوادگی',
+          'کد کارگزینی',
+          'استان',
+          'نوع همکاری',
+          'شروع همکاری',
+          'شماره موبایل',
+          'وضعیت',
+        ];
   final rows = employees.indexed.map((entry) {
     final (index, e) = entry;
+    if (collaborationReport) {
+      return [
+        reportPersianDigits('${index + 1}'),
+        e.firstName,
+        e.lastName,
+        e.jobTitle.isEmpty ? '—' : e.jobTitle,
+        e.province.isEmpty ? '—' : e.province,
+        e.collaborationType.isEmpty ? '—' : e.collaborationType,
+        formatDate(e.hireDate),
+      ];
+    }
     return [
       reportPersianDigits('${index + 1}'),
       e.fullName,
@@ -67,20 +95,24 @@ Future<Uint8List> buildEmployeeReportPdf({
         child: pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'گزارش کارکنان',
-                  style: pw.TextStyle(fontSize: 21, color: navy),
-                ),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  Employee.organizationalUnit,
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              ],
+            pw.Expanded(
+              child: pw.Column(
+                mainAxisSize: pw.MainAxisSize.min,
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    title,
+                    style: pw.TextStyle(fontSize: 21, color: navy),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'هیئت معارف جنگ شهید سپهبد علی صیاد شیرازی',
+                    style: const pw.TextStyle(fontSize: 10),
+                  ),
+                ],
+              ),
             ),
+            pw.SizedBox(width: 16),
             pw.Text(
               'تاریخ تهیه: $dateLabel',
               style: const pw.TextStyle(fontSize: 10),
@@ -149,16 +181,26 @@ Future<Uint8List> buildEmployeeReportPdf({
             ),
             oddRowDecoration: const pw.BoxDecoration(color: pale),
             border: pw.TableBorder.all(color: PdfColors.grey300, width: .4),
-            columnWidths: {
-              0: const pw.FlexColumnWidth(.8),
-              1: const pw.FlexColumnWidth(1.3),
-              2: const pw.FlexColumnWidth(1.1),
-              3: const pw.FlexColumnWidth(2.2),
-              4: const pw.FlexColumnWidth(1),
-              5: const pw.FlexColumnWidth(1.2),
-              6: const pw.FlexColumnWidth(2),
-              7: const pw.FlexColumnWidth(.5),
-            },
+            columnWidths: collaborationReport
+                ? {
+                    0: const pw.FlexColumnWidth(1.5),
+                    1: const pw.FlexColumnWidth(2.2),
+                    2: const pw.FlexColumnWidth(1.2),
+                    3: const pw.FlexColumnWidth(1.2),
+                    4: const pw.FlexColumnWidth(1.5),
+                    5: const pw.FlexColumnWidth(1.2),
+                    6: const pw.FlexColumnWidth(.5),
+                  }
+                : {
+                    0: const pw.FlexColumnWidth(.8),
+                    1: const pw.FlexColumnWidth(1.3),
+                    2: const pw.FlexColumnWidth(1.1),
+                    3: const pw.FlexColumnWidth(2.2),
+                    4: const pw.FlexColumnWidth(1),
+                    5: const pw.FlexColumnWidth(1.2),
+                    6: const pw.FlexColumnWidth(2),
+                    7: const pw.FlexColumnWidth(.5),
+                  },
           ),
       ],
     ),

@@ -1,5 +1,14 @@
 class Employee {
-  static const organizationalUnit = 'معارف و جنگ';
+  static const organizationalUnit = 'معارف جنگ';
+  static const provincialCollaboration = 'هیئت مرکزی و گروه های استانی';
+
+  static String normalizeCollaborationType(String value) =>
+      switch (value.trim()) {
+        'معارف جنگ و روساء گروه های استانی' => provincialCollaboration,
+        'اساتید' => 'استاد',
+        'اساتید پیشکسوت' => 'استاد پیشکسوت',
+        _ => value,
+      };
 
   const Employee({
     required this.id,

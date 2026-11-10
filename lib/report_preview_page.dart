@@ -1,9 +1,10 @@
-import 'dart:typed_data';
-
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
+
+import 'widgets/browser_pdf_preview.dart';
 
 class ReportPreviewPage extends StatefulWidget {
   const ReportPreviewPage({
@@ -26,12 +27,24 @@ class _ReportPreviewPageState extends State<ReportPreviewPage> {
   @override
   void initState() {
     super.initState();
-    _report = widget.buildReport();
+    _report = _buildReport();
   }
+
+  Future<Uint8List> _buildReport() =>
+      Future.sync(widget.buildReport).timeout(const Duration(seconds: 45));
 
   Future<void> _save(Uint8List bytes) async {
     setState(() => _saving = true);
     try {
+      final file = XFile.fromData(
+        bytes,
+        name: widget.fileName,
+        mimeType: 'application/pdf',
+      );
+      if (kIsWeb) {
+        await file.saveTo(widget.fileName);
+        return;
+      }
       final location = await getSaveLocation(
         suggestedName: widget.fileName,
         acceptedTypeGroups: const [
@@ -40,11 +53,7 @@ class _ReportPreviewPageState extends State<ReportPreviewPage> {
         confirmButtonText: 'ذخیره',
       );
       if (location == null) return;
-      await XFile.fromData(
-        bytes,
-        name: widget.fileName,
-        mimeType: 'application/pdf',
-      ).saveTo(location.path);
+      await file.saveTo(location.path);
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('گزارش PDF ذخیره شد')));
@@ -91,8 +100,7 @@ class _ReportPreviewPageState extends State<ReportPreviewPage> {
                     const Text('ساخت گزارش انجام نشد.'),
                     const SizedBox(height: 12),
                     OutlinedButton(
-                      onPressed: () =>
-                          setState(() => _report = widget.buildReport()),
+                      onPressed: () => setState(() => _report = _buildReport()),
                       child: const Text('تلاش مجدد'),
                     ),
                   ],
@@ -100,6 +108,8 @@ class _ReportPreviewPageState extends State<ReportPreviewPage> {
               )
             : !snapshot.hasData
             ? const Center(child: CircularProgressIndicator())
+            : kIsWeb
+            ? browserPdfPreview(snapshot.data!)
             : PdfPreview(
                 build: (_) async => snapshot.data!,
                 initialPageFormat: PdfPageFormat.a4.landscape,
@@ -109,6 +119,11 @@ class _ReportPreviewPageState extends State<ReportPreviewPage> {
                 allowSharing: false,
                 pdfFileName: widget.fileName,
                 maxPageWidth: 1100,
+                onError: (_, error) => const Center(
+                  child: Text(
+                    'نمایش پیش‌نمایش انجام نشد؛ از دکمه «ذخیره PDF» استفاده کنید.',
+                  ),
+                ),
                 onPrintError: (context, error) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

@@ -12,6 +12,41 @@ import 'auth_test_support.dart';
 
 void main() {
   group('EmployeeRecordMapper', () {
+    test(
+      'normalizes both instructor types when reading and saving old records',
+      () {
+        for (final entry in {
+          'اساتید': 'استاد',
+          'اساتید پیشکسوت': 'استاد پیشکسوت',
+        }.entries) {
+          final record = _record();
+          record['collaboration_type'] = entry.key;
+          final employee = EmployeeRecordMapper.fromRecord(
+            RecordModel.fromJson(record),
+          );
+          expect(employee.collaborationType, entry.value);
+          expect(
+            EmployeeRecordMapper.toBody(employee)['collaboration_type'],
+            entry.value,
+          );
+        }
+      },
+    );
+    test('renames the legacy collaboration for all 215 existing records', () {
+      for (var index = 0; index < 215; index++) {
+        final record = _record();
+        record['collaboration_type'] = 'معارف جنگ و روساء گروه های استانی';
+        final employee = EmployeeRecordMapper.fromRecord(
+          RecordModel.fromJson(record),
+        );
+        expect(employee.collaborationType, Employee.provincialCollaboration);
+        expect(
+          EmployeeRecordMapper.toBody(employee)['collaboration_type'],
+          Employee.provincialCollaboration,
+        );
+      }
+      expect(Employee.normalizeCollaborationType('نظامی شاغل'), 'نظامی شاغل');
+    });
     test('reads every field and keeps stored calendar dates', () {
       final employee = EmployeeRecordMapper.fromRecord(
         RecordModel.fromJson(

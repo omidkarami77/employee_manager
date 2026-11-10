@@ -16,10 +16,44 @@ class _ReportsPageState extends State<_ReportsPage> {
   String? _province;
   String? _collaborationType;
   bool _exporting = false;
+  int _page = 0;
 
-  void _preview(List<Employee> employees, DateTime now) {
+  void _viewEmployee(Employee employee) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => EmployeeDetailsPage(
+          employee: employee,
+          controller: widget.controller,
+          repository: widget.controller.repository,
+          onEdit: (original) async {
+            if (!widget.controller.canManageEmployees ||
+                widget.controller.isMutating) {
+              return null;
+            }
+            return showDialog<Employee>(
+              useRootNavigator: false,
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => _AddEmployeeDialog(
+                employee: original,
+                employees: widget.controller.employees,
+                onSave: widget.controller.saveEmployee,
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _preview(
+    List<Employee> employees,
+    DateTime now, {
+    bool collaborationReport = false,
+  }) {
     // Keep the report stable if records or filters change while previewing.
     final snapshot = List<Employee>.unmodifiable(employees);
+    final collaborationType = _collaborationType;
     final filters = [
       'سابقه: ${switch (_experienceRange) {
         10 => 'تا ۱۰ سال',
@@ -40,13 +74,16 @@ class _ReportsPageState extends State<_ReportsPage> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ReportPreviewPage(
-          fileName: 'employees_report_${now.year}-${now.month}-${now.day}.pdf',
+          fileName:
+              '${collaborationReport ? 'employees_collaboration' : 'employees_report'}_${now.year}-${now.month}-${now.day}.pdf',
           buildReport: () => buildEmployeeReportPdf(
             employees: snapshot,
             generatedAt: now,
             dateLabel: _jalali(now),
             filters: filters,
             formatDate: _jalali,
+            collaborationType: collaborationType,
+            collaborationReport: collaborationReport,
           ),
         ),
       ),
@@ -139,6 +176,8 @@ class _ReportsPageState extends State<_ReportsPage> {
       query: _search.text,
       now: now,
     );
+    final page = math.min(_page, math.max(0, (employees.length - 1) ~/ 25));
+    final start = page * 25;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -239,8 +278,8 @@ class _ReportsPageState extends State<_ReportsPage> {
                       child: Text('همه انواع همکاری'),
                     ),
                     DropdownMenuItem(
-                      value: 'معارف جنگ و روساء گروه های استانی',
-                      child: Text('معارف جنگ و روساء گروه های استانی'),
+                      value: Employee.provincialCollaboration,
+                      child: Text(Employee.provincialCollaboration),
                     ),
                     DropdownMenuItem(
                       value: 'نظامی شاغل',
@@ -258,10 +297,10 @@ class _ReportsPageState extends State<_ReportsPage> {
                       value: 'پیشکوست شاغل ( گروه های استانی )',
                       child: Text('پیشکوست شاغل ( گروه های استانی )'),
                     ),
-                    DropdownMenuItem(value: 'اساتید', child: Text('اساتید')),
+                    DropdownMenuItem(value: 'استاد', child: Text('استاد')),
                     DropdownMenuItem(
-                      value: 'اساتید پیشکسوت',
-                      child: Text('اساتید پیشکسوت'),
+                      value: 'استاد پیشکسوت',
+                      child: Text('استاد پیشکسوت'),
                     ),
                   ],
                   onChanged: (value) =>
@@ -314,6 +353,21 @@ class _ReportsPageState extends State<_ReportsPage> {
                     label: const Text('پیش‌نمایش و چاپ / PDF'),
                   ),
                   FilledButton.icon(
+                    key: const ValueKey('report-collaboration-pdf'),
+                    onPressed:
+                        employees.isEmpty ||
+                            _exporting ||
+                            widget.controller.isMutating
+                        ? null
+                        : () => _preview(
+                            employees,
+                            now,
+                            collaborationReport: true,
+                          ),
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    label: const Text('PDF مشخصات همکاری'),
+                  ),
+                  FilledButton.icon(
                     onPressed: employees.isEmpty || _exporting
                         ? null
                         : () => _export(employees, now),
@@ -336,6 +390,11 @@ class _ReportsPageState extends State<_ReportsPage> {
                 style: TextStyle(color: Color(0xFF667085), fontSize: 12),
               ),
               const SizedBox(height: 20),
+              _EmployeeTablePager(
+                page: page,
+                total: employees.length,
+                onChanged: (value) => setState(() => _page = value),
+              ),
               if (employees.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(24),
@@ -355,6 +414,7 @@ class _ReportsPageState extends State<_ReportsPage> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.only(bottom: 16),
                     child: DataTable(
+                      showCheckboxColumn: false,
                       headingRowColor: const WidgetStatePropertyAll(
                         Color(0xFFF6F8FC),
                       ),
@@ -391,9 +451,10 @@ class _ReportsPageState extends State<_ReportsPage> {
                         'سابقه',
                         'وضعیت',
                       ].map((label) => DataColumn(label: Text(label))).toList(),
-                      rows: employees.indexed.map((entry) {
+                      rows: employees.indexed.skip(start).take(25).map((entry) {
                         final (index, e) = entry;
                         return DataRow(
+                          onSelectChanged: (_) => _viewEmployee(e),
                           cells: [
                             DataCell(Text(_fa('${index + 1}'))),
                             DataCell(Text(e.fullName)),

@@ -69,7 +69,9 @@ class EmployeeRecordMapper {
           record.data['veteran_disability_percentage']?.toString() ?? '',
       maritalStatus: record.data['marital_status']?.toString() ?? '',
       dependentsCount: record.data['dependents_count']?.toString() ?? '',
-      collaborationType: record.data['collaboration_type']?.toString() ?? '',
+      collaborationType: Employee.normalizeCollaborationType(
+        record.data['collaboration_type']?.toString() ?? '',
+      ),
       educationalDegree: record.data['educational_degree']?.toString() ?? '',
       lastServiceUnit: record.data['last_service_unit']?.toString() ?? '',
       specialization: record.data['specialization']?.toString() ?? '',
@@ -113,7 +115,9 @@ class EmployeeRecordMapper {
       'veteran_disability_percentage': employee.veteranDisabilityPercentage,
       'marital_status': employee.maritalStatus,
       'dependents_count': employee.dependentsCount,
-      'collaboration_type': employee.collaborationType,
+      'collaboration_type': Employee.normalizeCollaborationType(
+        employee.collaborationType,
+      ),
       'educational_degree': employee.educationalDegree,
       'last_service_unit': employee.lastServiceUnit,
       'specialization': employee.specialization,
@@ -227,20 +231,48 @@ class EmployeeRepository {
 
   Future<Employee> createEmployee(Employee employee) => _request(() async {
     _requireAdmin();
-    final record = await _collection.create(
-      body: EmployeeRecordMapper.toBody(employee),
+    final record = await _saveWithCollaborationCompatibility(
+      EmployeeRecordMapper.toBody(employee),
+      (body) => _collection.create(body: body),
     );
     return EmployeeRecordMapper.fromRecord(await _collection.getOne(record.id));
   });
 
   Future<Employee> updateEmployee(Employee employee) => _request(() async {
     _requireAdmin();
-    final record = await _collection.update(
-      employee.id,
-      body: EmployeeRecordMapper.toBody(employee, clearMissingEndDate: true),
+    final record = await _saveWithCollaborationCompatibility(
+      EmployeeRecordMapper.toBody(employee, clearMissingEndDate: true),
+      (body) => _collection.update(employee.id, body: body),
     );
     return EmployeeRecordMapper.fromRecord(record);
   });
+
+  // Older servers still validate the select field against its original labels.
+  // Prefer the current labels, and retry once only for a rejected renamed option.
+  Future<RecordModel> _saveWithCollaborationCompatibility(
+    Map<String, dynamic> body,
+    Future<RecordModel> Function(Map<String, dynamic>) save,
+  ) async {
+    try {
+      return await save(body);
+    } on ClientException catch (error) {
+      const legacyLabels = {
+        Employee.provincialCollaboration: 'معارف جنگ و روساء گروه های استانی',
+        'استاد': 'اساتید',
+        'استاد پیشکسوت': 'اساتید پیشکسوت',
+      };
+      final legacy = legacyLabels[body['collaboration_type']];
+      final errors = error.response['data'];
+      final detail = errors is Map ? errors['collaboration_type'] : null;
+      if (error.statusCode != 400 ||
+          legacy == null ||
+          detail is! Map ||
+          detail['code'] != 'validation_in_invalid') {
+        rethrow;
+      }
+      return save({...body, 'collaboration_type': legacy});
+    }
+  }
 
   Future<void> deleteEmployee(String id) => _request(() {
     _requireAdmin();
@@ -363,6 +395,7 @@ class EmployeeRepository {
       'personnel_code': 'کد کارگزینی',
       'job_title': 'عنوان شغلی',
       'department': 'واحد سازمانی',
+      'collaboration_type': 'نوع همکاری',
       'organizational_membership': 'عضویت سازمانی',
       'address': 'آدرس',
       'hire_date': 'تاریخ شروع همکاری',

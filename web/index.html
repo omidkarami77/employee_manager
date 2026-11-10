@@ -41,6 +41,10 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <script>
+    // Serve the PDF renderer with the app, including on the local network.
+    var dartPdfJsBaseUrl = new URL('pdfjs/', document.baseURI).href;
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

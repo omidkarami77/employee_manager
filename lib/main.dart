@@ -837,6 +837,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       _mobile = TextEditingController(),
       _code = TextEditingController(),
       _title = TextEditingController(),
+      _position = TextEditingController(),
       _organizationalMembership = TextEditingController(),
       _lastServiceUnit = TextEditingController(),
       _specialization = TextEditingController(),
@@ -873,6 +874,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
     _mobile.text = e.mobile;
     _code.text = e.personnelCode;
     _title.text = e.jobTitle;
+    _position.text = e.position;
     _organizationalMembership.text = e.organizationalMembership;
     _lastServiceUnit.text = e.lastServiceUnit;
     _specialization.text = e.specialization;
@@ -929,6 +931,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       _mobile,
       _code,
       _title,
+      _position,
       _organizationalMembership,
       _lastServiceUnit,
       _specialization,
@@ -1110,6 +1113,7 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
       isActive: _active,
       nationalCode: _nationalId.text.trim(),
       jobTitle: _title.text.trim(),
+      position: _position.text.trim(),
       organizationalMembership: _organizationalMembership.text.trim(),
       department: Employee.organizationalUnit,
       province: _province!,
@@ -1518,6 +1522,14 @@ class _AddEmployeeDialogState extends State<_AddEmployeeDialog> {
                             controller: _specialization,
                             validator: _required,
                             decoration: _dec('تخصص'),
+                          ),
+                        ),
+                        _FormField(
+                          child: TextFormField(
+                            key: const ValueKey('employee-position'),
+                            controller: _position,
+                            maxLength: 250,
+                            decoration: _dec('سمت (اختیاری)'),
                           ),
                         ),
                         _FormField(

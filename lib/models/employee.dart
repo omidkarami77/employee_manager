@@ -18,6 +18,7 @@ class Employee {
     required this.mobile,
     required this.personnelCode,
     required this.jobTitle,
+    this.position = '',
     String? department,
     this.province = '',
     this.organizationalMembership = '',
@@ -57,6 +58,7 @@ class Employee {
       department,
       province;
   final String organizationalMembership;
+  final String position;
   final DateTime hireDate;
   final DateTime? endDate;
   final DateTime? employmentDate;

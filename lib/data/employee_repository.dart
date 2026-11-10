@@ -36,6 +36,7 @@ class EmployeeRecordMapper {
       mobile: record.getStringValue('mobile'),
       personnelCode: record.getStringValue('personnel_code'),
       jobTitle: record.getStringValue('job_title'),
+      position: record.getStringValue('position'),
       department: Employee.organizationalUnit,
       // Records created before this field was added do not have a province.
       province: record.data['province']?.toString() ?? '',
@@ -92,6 +93,7 @@ class EmployeeRecordMapper {
       'mobile': employee.mobile,
       'personnel_code': employee.personnelCode,
       'job_title': employee.jobTitle,
+      'position': employee.position,
       'department': Employee.organizationalUnit,
       'province': employee.province,
       'organizational_membership': employee.organizationalMembership,
@@ -388,6 +390,7 @@ class EmployeeRepository {
     }
 
     const fieldNames = {
+      'position': 'سمت',
       'first_name': 'نام',
       'last_name': 'نام خانوادگی',
       'national_code_': 'کد ملی',
